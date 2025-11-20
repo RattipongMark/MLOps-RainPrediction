@@ -7,7 +7,7 @@ def run_training():
     mlflow=True,
     token=dagshub_token
     )
-    dagshub.init(repo_owner='RattipongMark', repo_name='chanakan_code', mlflow=True)
+    # dagshub.init(repo_owner='RattipongMark', repo_name='chanakan_code', mlflow=True)
     
 
     import mlflow

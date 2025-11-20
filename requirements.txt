@@ -1,0 +1,8 @@
+dagshub
+mlflow>=2,<3
+xgboost
+lightgbm
+scikit-learn
+matplotlib
+pandas
+evidently==0.4.33

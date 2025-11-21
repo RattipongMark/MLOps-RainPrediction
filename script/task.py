@@ -48,7 +48,7 @@ def load_data_from_api(output_path="../data/data_clean.csv"):
 # -----------------------------
 # 2. Preprocess
 # -----------------------------
-def preprocess_data(input_path="/opt/airflow/data/data_clean.csv", output_path="data_preprocessed.csv"):
+def preprocess_data(input_path="../data/data_clean.csv", output_path="../data/data_preprocessed.csv"):
     df = pd.read_csv(input_path)
     df["target"] = (df["rain (mm)"] > 0.1).astype(int)
     df = df.drop(["time", "rain (mm)", "weather_code (wmo code)", "is_day ()"], axis=1)
@@ -58,10 +58,10 @@ def preprocess_data(input_path="/opt/airflow/data/data_clean.csv", output_path="
 # -----------------------------
 # 3. Feature selection
 # -----------------------------
-def feature_selection(input_path="data_preprocessed.csv",
-                      features_path="selected_features.json",
-                      importance_path="feature_importance.csv",
-                      output_path="data_selected.csv",
+def feature_selection(input_path="../data/data_preprocessed.csv",
+                      features_path="../data/selected_features.json",
+                      importance_path="../data/feature_importance.csv",
+                      output_path="../data/data_selected.csv",
                       corr_threshold=0.7,
                       importance_cutoff=0.90):
 
@@ -98,8 +98,8 @@ def feature_selection(input_path="data_preprocessed.csv",
 # -----------------------------
 # 4. Train models
 # -----------------------------
-def train_models(input_path="data_selected.csv",
-                 tracking_uri="http://127.0.0.1:5000",
+def train_models(input_path="../data/data_selected.csv",
+                #  tracking_uri="http://127.0.0.1:5000",
                  experiment_name="rain_model_comparison",
                  model_dir="models"):
 
@@ -109,7 +109,7 @@ def train_models(input_path="data_selected.csv",
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
     os.makedirs(model_dir, exist_ok=True)
 
-    mlflow.set_tracking_uri(tracking_uri)
+    # mlflow.set_tracking_uri(tracking_uri)
     mlflow.set_experiment(experiment_name)
 
     scale_pos_weight = (y_train==0).sum()/(y_train==1).sum()
@@ -176,10 +176,10 @@ def save_best_model(**context):
     print(f"Model '{registered_model_name}' version {model_version.version} is now in stage 'Production'.")
 
 
-def generate_evidently(input_path="data_selected.csv",
+def generate_evidently(input_path="../data/data_selected.csv",
                        registered_model_name="rain_prediction_model",
                        model_dir="models",
-                       output_path="evidently.html"):
+                       output_path="../data/evidently.html"):
     df = pd.read_csv(input_path)
     X = df.drop("target", axis=1)
     y = df["target"]
@@ -241,7 +241,7 @@ def generate_evidently(input_path="data_selected.csv",
 
     # Log to MLflow (new run for monitoring step)
     with mlflow.start_run(run_name=f"evidently_{datetime.now().date()}"):
-        mlflow.log_artifact(output_path, artifact_path="evidently_reports")
+        mlflow.log_artifact(output_path, artifact_path="../data/evidently_reports")
         mlflow.log_metric("share_drifted_columns", share_drifted)
         mlflow.log_metric("accuracy_drop", accuracy_drop)
         mlflow.log_metric("dataset_drift_flag", int(dataset_drift))

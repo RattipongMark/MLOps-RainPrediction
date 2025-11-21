@@ -54,10 +54,20 @@ def load_data_from_api(filename="data_clean.csv"):
     if response.status_code != 200:
         raise ValueError(f"API request failed: {response.status_code}")
 
+    # data = response.json()
+    # df = pd.DataFrame(data["hourly"])
+    # df["time"] = pd.to_datetime(df["time"])
+    # df = df[(df["time"] >= "2014-01-01") & (df["time"] < "2025-01-01")]
+    # df.to_csv(output_path, index=False)
+    # print(f"[tasks] API data saved to {output_path}")
+
     data = response.json()
     df = pd.DataFrame(data["hourly"])
     df["time"] = pd.to_datetime(df["time"])
-    df = df[(df["time"] >= "2014-01-01") & (df["time"] < "2025-01-01")]
+    for col in df.columns:
+        if col != "time":
+            df[col] = pd.to_numeric(df[col], errors='coerce')
+    df = df.fillna(0)
     df.to_csv(output_path, index=False)
     print(f"[tasks] API data saved to {output_path}")
 

@@ -253,11 +253,29 @@ def generate_evidently(input_filename="data_selected.csv",
     print(f"Evidently report saved to {output_path}")
 
     result = report.as_dict()
-    metrics = result["metrics"]
+    print("Keys in report dict:", result.keys())
 
-    data_drift_result = next(m for m in metrics if m["metric"] == "DataDriftPreset")["result"]
-    target_drift_result = next(m for m in metrics if m["metric"] == "TargetDriftPreset")["result"]
-    cls_result         = next(m for m in metrics if m["metric"] == "ClassificationPreset")["result"]
+    metrics = result["metrics"]
+    print(f"Found {len(metrics)} metrics:")
+    for m in metrics:
+        print("Metric name:", m.get("metric"))
+        print("Result:", m.get("result"))
+        print("---")
+
+    def get_metric_result(metrics, metric_name):
+        for m in metrics:
+            if m.get("metric") == metric_name:
+                return m.get("result")
+        print(f"[WARNING] Metric '{metric_name}' not found.")
+        return None
+
+    data_drift_result   = get_metric_result(metrics, "DataDriftPreset")
+    target_drift_result = get_metric_result(metrics, "TargetDriftPreset")
+    cls_result          = get_metric_result(metrics, "ClassificationPreset")
+
+    # data_drift_result = next(m for m in metrics if m["metric"] == "DataDriftPreset")["result"]
+    # target_drift_result = next(m for m in metrics if m["metric"] == "TargetDriftPreset")["result"]
+    # cls_result         = next(m for m in metrics if m["metric"] == "ClassificationPreset")["result"]
 
     dataset_drift   = data_drift_result["dataset_drift"]
     share_drifted   = data_drift_result["share_of_drifted_columns"]

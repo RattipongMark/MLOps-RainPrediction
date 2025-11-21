@@ -1,13 +1,13 @@
 def run_training():
     import dagshub
-    dagshub_token = '1cff28c7e5d4b684113fd31db220311391db8688'
-    dagshub.init(
-    repo_owner='RattipongMark',
-    repo_name='RainPrediction',
-    mlflow=True,
-    token=dagshub_token
-    )
-    # dagshub.init(repo_owner='RattipongMark', repo_name='MLOps-RainPrediction', mlflow=True)
+    # dagshub_token = '1cff28c7e5d4b684113fd31db220311391db8688'
+    # dagshub.init(
+    # repo_owner='RattipongMark',
+    # repo_name='RainPrediction',
+    # mlflow=True,
+    # token=dagshub_token
+    # )
+    dagshub.init(repo_owner='RattipongMark', repo_name='MLOps-RainPrediction', mlflow=True)
     
 
     import mlflow

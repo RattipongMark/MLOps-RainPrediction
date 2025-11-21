@@ -253,6 +253,7 @@ def generate_evidently(input_filename="data_selected.csv",
     print(f"Evidently report saved to {output_path}")
 
     result = report.as_dict()
+    print("result",result)
     print("Keys in report dict:", result.keys())
 
     metrics = result["metrics"]

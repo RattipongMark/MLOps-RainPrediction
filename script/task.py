@@ -70,7 +70,7 @@ def preprocess_data(input_filename="data_clean.csv", output_filename="data_prepr
 
     df = pd.read_csv(input_path)
     df["target"] = (df["rain"] > 0.1).astype(int)
-    df = df.drop(["time", "rain", "weather_code (wmo code)", "is_day ()"], axis=1)
+    df = df.drop(["time", "rain", "weather_code"], axis=1)
     df.to_csv(output_path, index=False)
     print(f"[tasks] Preprocessed data saved to {output_path}")
 

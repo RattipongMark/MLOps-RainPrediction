@@ -223,10 +223,20 @@ def generate_evidently(input_filename="data_selected.csv",
         model_uri = f"models:/{registered_model_name}/Production"
         model = mlflow.pyfunc.load_model(model_uri)
     except Exception as e:
-        if "Model not found" in str(e) or "No versions of model" in str(e) or "No version is in the specified stage" in str(e):
+        if any(msg in str(e) for msg in [
+            "Model not found",
+            "No versions of model",
+            "No version is in the specified stage",
+            "RESOURCE_DOES_NOT_EXIST"
+        ]):
             print("[INFO] No Production model yet. First run.")
             return {"first_run": True}
         raise e
+
+        # if "Model not found" in str(e) or "No versions of model" in str(e) or "No version is in the specified stage" in str(e):
+        #     print("[INFO] No Production model yet. First run.")
+        #     return {"first_run": True}
+        # raise e
 
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
     ref_df = X_train.copy()

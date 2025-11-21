@@ -144,3 +144,160 @@ def train_models(input_path="data_selected.csv",
             print(f"[tasks] {name} trained & logged.")
 
     return results
+
+def save_best_model(**context):
+    ti = context["ti"]
+    results = ti.xcom_pull(task_ids="train_models")
+
+    best_model = max(results, key=lambda x: x["acc"])
+    print(f"Best model: {best_model['model_name']} with accuracy {best_model['acc']:.4f}")
+
+    best_model_uri = f"runs:/{best_model['run_id']}/{best_model['artifact_path']}"
+
+    registered_model_name = "rain_prediction_model"
+
+    model_version = mlflow.register_model(
+        model_uri=best_model_uri,
+        name=registered_model_name
+    )
+
+    print(f"Registered model version: name={registered_model_name}, version={model_version.version}")
+
+    # 2) Promote this version to Production (and optionally archive old ones)
+    client = MlflowClient()
+    client.transition_model_version_stage(
+        name=registered_model_name,
+        version=model_version.version,
+        stage="Production",
+        archive_existing_versions=True,   # this archives any previous Production versions
+    )
+
+    print(f"Model '{registered_model_name}' version {model_version.version} is now in stage 'Production'.")
+
+def generate_evidently(input_path="data_selected.csv",
+                       registered_model_name="rain_prediction_model",
+                       model_dir="models",
+                       output_path="evidently.html"):
+    df = pd.read_csv(input_path)
+    X = df.drop("target", axis=1)
+    y = df["target"]
+
+
+    # Load MLflow model
+    try:
+        model_uri = f"models:/{registered_model_name}/Production"
+        model = mlflow.pyfunc.load_model(model_uri)
+    except Exception as e:
+        # Case 1: model name not found
+        if "Model not found" in str(e):
+            print("[INFO] No model registered yet. First run.")
+            return {"first_run": True}
+
+        # Case 2: model exists but no version in Production
+        if "No versions of model" in str(e) or "No version is in the specified stage" in str(e):
+            print("[INFO] Model exists but no Production version yet. First run.")
+            return {"first_run": True}
+
+        # Other unexpected MLflow exceptions: re-raise them
+        raise e
+
+    # Split
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
+    ref_df = X_train.copy()
+    cur_df = X_test.copy()
+    ref_df["target"] = y_train.values
+    cur_df["target"] = y_test.values
+    ref_df["prediction"] = model.predict(X_train)
+    cur_df["prediction"] = model.predict(X_test)
+
+    column_mapping = ColumnMapping(target="target", prediction="prediction")
+    report = Report(metrics=[DataDriftPreset(), TargetDriftPreset(), ClassificationPreset()])
+    report.run(reference_data=ref_df, current_data=cur_df, column_mapping=column_mapping)
+    report.save_html(output_path)
+    print(f"Evidently report saved to {output_path}")
+    # Extract dict
+    result = report.as_dict()
+    metrics = result["metrics"]
+
+    data_drift_result = next(m for m in metrics if m["metric"] == "DataDriftPreset")["result"]
+    target_drift_result = next(m for m in metrics if m["metric"] == "TargetDriftPreset")["result"]
+    cls_result         = next(m for m in metrics if m["metric"] == "ClassificationPreset")["result"]
+
+    dataset_drift   = data_drift_result["dataset_drift"]
+    share_drifted   = data_drift_result["share_of_drifted_columns"]
+    target_drift    = target_drift_result["drift_detected"]
+    ref_acc         = cls_result["reference"]["accuracy"]
+    cur_acc         = cls_result["current"]["accuracy"]
+    accuracy_drop   = ref_acc - cur_acc
+
+    print(f"[monitoring] dataset_drift={dataset_drift}, "
+          f"share_drifted={share_drifted:.3f}, "
+          f"target_drift={target_drift}, "
+          f"ref_acc={ref_acc:.3f}, cur_acc={cur_acc:.3f}, "
+          f"accuracy_drop={accuracy_drop:.3f}, ")
+          #f"should_retrain={should_retrain}")
+
+    # Log to MLflow (new run for monitoring step)
+    with mlflow.start_run(run_name=f"evidently_{datetime.now().date()}"):
+        mlflow.log_artifact(output_path, artifact_path="evidently_reports")
+        mlflow.log_metric("share_drifted_columns", share_drifted)
+        mlflow.log_metric("accuracy_drop", accuracy_drop)
+        mlflow.log_metric("dataset_drift_flag", int(dataset_drift))
+        mlflow.log_metric("target_drift_flag", int(target_drift))
+
+    return {
+        "dataset_drift": dataset_drift,
+        "share_drifted": share_drifted,
+        "target_drift": target_drift,
+        "ref_acc": ref_acc,
+        "cur_acc": cur_acc,
+        "accuracy_drop": accuracy_drop
+    }
+
+def decide_retrain(**context):
+    ti = context["ti"]
+    ev_result = ti.xcom_pull(task_ids="generate_evidently")
+
+    if ev_result.get("first_run", False):
+        print("First run detected, proceeding to train model.")
+        return True
+
+    dataset_drift = ev_result["dataset_drift"]
+    share_drifted = ev_result["share_drifted"]
+    target_drift  = ev_result["target_drift"]
+    ref_acc       = ev_result["ref_acc"]
+    cur_acc       = ev_result["cur_acc"]
+    accuracy_drop = ev_result["accuracy_drop"]
+
+    # thresholds you commented out before
+    acc_drop_threshold = 0.05       # 5% absolute accuracy drop
+    drift_share_threshold = 0.3     # >= 30% of features drifted
+
+    should_retrain = (
+        (dataset_drift and share_drifted >= drift_share_threshold)
+        or target_drift
+        or (accuracy_drop >= acc_drop_threshold)
+    )
+
+    print(
+        f"should_retrain_from_metrics={should_retrain}"
+    )
+
+    # When you trigger the DAG manually, you can pass {"force_retrain": true}
+    dag_run = context.get("dag_run")
+    dag_conf = dag_run.conf if dag_run else {}
+    force_retrain = bool(dag_conf.get("force_retrain", False))
+
+    
+    execution_date = context.get("logical_date") or context.get("execution_date")
+    if execution_date is not None:
+        is_monday = execution_date.weekday() == 0  # Monday = 0
+    else:
+        # Fallback to "now" if for some reason it's missing
+        is_monday = datetime.utcnow().weekday() == 0
+
+    if is_monday or force_retrain:
+        should_retrain = True
+
+
+    return should_retrain   # ShortCircuitOperator expects True/False

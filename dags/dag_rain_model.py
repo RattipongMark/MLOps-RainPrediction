@@ -2,7 +2,10 @@ from airflow import DAG
 from airflow.operators.python import PythonOperator, ShortCircuitOperator
 # from airflow.operators.shortcircuit import ShortCircuitOperator
 from datetime import datetime
-from script.task import load_data_from_api, preprocess_data, feature_selection, train_models, save_best_model, generate_evidently, decide_retrain
+import sys
+import os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../script')))
+from task import load_data_from_api, preprocess_data, feature_selection, train_models, save_best_model, generate_evidently, decide_retrain
 
 with DAG(
     dag_id="rain_model_multi_task_refactored",

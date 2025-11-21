@@ -1,14 +1,14 @@
-# tasks.py
+import os
 import pandas as pd
 import numpy as np
 import json
-import os
 import requests
 from xgboost import XGBClassifier
 import lightgbm as lgb
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import accuracy_score, roc_auc_score
+from sklearn.metrics import accuracy_score
+import dagshub
 import mlflow
 from mlflow import MlflowClient
 from evidently.report import Report
@@ -17,11 +17,22 @@ from evidently import ColumnMapping
 from datetime import datetime
 
 # -----------------------------
+# Global: Data directory
+# -----------------------------
+def get_data_dir():
+    """Return absolute path to the data folder and create it if missing"""
+    base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../data"))
+    os.makedirs(base_dir, exist_ok=True)
+    return base_dir
+
+DATA_DIR = get_data_dir()  # ใช้ทุกฟังก์ชัน
+
+# -----------------------------
 # 1. Load data
 # -----------------------------
+def load_data_from_api(filename="data_clean.csv"):
+    output_path = os.path.join(DATA_DIR, filename)
 
-
-def load_data_from_api(output_path="../../data/data_clean.csv"):
     url = (
         "https://archive-api.open-meteo.com/v1/archive?"
         "latitude=13.6513&longitude=100.4964&"
@@ -50,7 +61,10 @@ def load_data_from_api(output_path="../../data/data_clean.csv"):
 # -----------------------------
 # 2. Preprocess
 # -----------------------------
-def preprocess_data(input_path="../data/data_clean.csv", output_path="../data/data_preprocessed.csv"):
+def preprocess_data(input_filename="data_clean.csv", output_filename="data_preprocessed.csv"):
+    input_path = os.path.join(DATA_DIR, input_filename)
+    output_path = os.path.join(DATA_DIR, output_filename)
+
     df = pd.read_csv(input_path)
     df["target"] = (df["rain (mm)"] > 0.1).astype(int)
     df = df.drop(["time", "rain (mm)", "weather_code (wmo code)", "is_day ()"], axis=1)
@@ -60,12 +74,17 @@ def preprocess_data(input_path="../data/data_clean.csv", output_path="../data/da
 # -----------------------------
 # 3. Feature selection
 # -----------------------------
-def feature_selection(input_path="../data/data_preprocessed.csv",
-                      features_path="../data/selected_features.json",
-                      importance_path="../data/feature_importance.csv",
-                      output_path="../data/data_selected.csv",
+def feature_selection(input_filename="data_preprocessed.csv",
+                      features_filename="selected_features.json",
+                      importance_filename="feature_importance.csv",
+                      output_filename="data_selected.csv",
                       corr_threshold=0.7,
                       importance_cutoff=0.90):
+
+    input_path = os.path.join(DATA_DIR, input_filename)
+    features_path = os.path.join(DATA_DIR, features_filename)
+    importance_path = os.path.join(DATA_DIR, importance_filename)
+    output_path = os.path.join(DATA_DIR, output_filename)
 
     print("[tasks] FEATURE SELECTION START")
     df = pd.read_csv(input_path)
@@ -100,18 +119,17 @@ def feature_selection(input_path="../data/data_preprocessed.csv",
 # -----------------------------
 # 4. Train models
 # -----------------------------
-def train_models(input_path="../data/data_selected.csv",
-                #  tracking_uri="http://127.0.0.1:5000",
+def train_models(input_filename="data_selected.csv",
                  experiment_name="rain_model_comparison",
-                 model_dir="models"):
+                 model_dir=os.path.join(DATA_DIR, "models")):
 
+    input_path = os.path.join(DATA_DIR, input_filename)
     df = pd.read_csv(input_path)
     X = df.drop("target", axis=1)
     y = df["target"]
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
     os.makedirs(model_dir, exist_ok=True)
 
-    # mlflow.set_tracking_uri(tracking_uri)
     mlflow.set_experiment(experiment_name)
 
     scale_pos_weight = (y_train==0).sum()/(y_train==1).sum()
@@ -147,7 +165,9 @@ def train_models(input_path="../data/data_selected.csv",
 
     return results
 
-
+# -----------------------------
+# 5. save best model
+# -----------------------------
 def save_best_model(**context):
     ti = context["ti"]
     results = ti.xcom_pull(task_ids="train_models")
@@ -156,7 +176,6 @@ def save_best_model(**context):
     print(f"Best model: {best_model['model_name']} with accuracy {best_model['acc']:.4f}")
 
     best_model_uri = f"runs:/{best_model['run_id']}/{best_model['artifact_path']}"
-
     registered_model_name = "rain_prediction_model"
 
     model_version = mlflow.register_model(
@@ -166,46 +185,39 @@ def save_best_model(**context):
 
     print(f"Registered model version: name={registered_model_name}, version={model_version.version}")
 
-    # 2) Promote this version to Production (and optionally archive old ones)
     client = MlflowClient()
     client.transition_model_version_stage(
         name=registered_model_name,
         version=model_version.version,
         stage="Production",
-        archive_existing_versions=True,   # this archives any previous Production versions
+        archive_existing_versions=True
     )
 
     print(f"Model '{registered_model_name}' version {model_version.version} is now in stage 'Production'.")
 
-
-def generate_evidently(input_path="../data/data_selected.csv",
+# -----------------------------
+# 6. Generate Evidently report
+# -----------------------------
+def generate_evidently(input_filename="data_selected.csv",
                        registered_model_name="rain_prediction_model",
-                       model_dir="models",
-                       output_path="../data/evidently.html"):
+                       output_filename="evidently.html"):
+
+    input_path = os.path.join(DATA_DIR, input_filename)
+    output_path = os.path.join(DATA_DIR, output_filename)
+
     df = pd.read_csv(input_path)
     X = df.drop("target", axis=1)
     y = df["target"]
 
-
-    # Load MLflow model
     try:
         model_uri = f"models:/{registered_model_name}/Production"
         model = mlflow.pyfunc.load_model(model_uri)
     except Exception as e:
-        # Case 1: model name not found
-        if "Model not found" in str(e):
-            print("[INFO] No model registered yet. First run.")
+        if "Model not found" in str(e) or "No versions of model" in str(e) or "No version is in the specified stage" in str(e):
+            print("[INFO] No Production model yet. First run.")
             return {"first_run": True}
-
-        # Case 2: model exists but no version in Production
-        if "No versions of model" in str(e) or "No version is in the specified stage" in str(e):
-            print("[INFO] Model exists but no Production version yet. First run.")
-            return {"first_run": True}
-
-        # Other unexpected MLflow exceptions: re-raise them
         raise e
 
-    # Split
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
     ref_df = X_train.copy()
     cur_df = X_test.copy()
@@ -219,7 +231,7 @@ def generate_evidently(input_path="../data/data_selected.csv",
     report.run(reference_data=ref_df, current_data=cur_df, column_mapping=column_mapping)
     report.save_html(output_path)
     print(f"Evidently report saved to {output_path}")
-    # Extract dict
+
     result = report.as_dict()
     metrics = result["metrics"]
 
@@ -234,16 +246,8 @@ def generate_evidently(input_path="../data/data_selected.csv",
     cur_acc         = cls_result["current"]["accuracy"]
     accuracy_drop   = ref_acc - cur_acc
 
-    print(f"[monitoring] dataset_drift={dataset_drift}, "
-          f"share_drifted={share_drifted:.3f}, "
-          f"target_drift={target_drift}, "
-          f"ref_acc={ref_acc:.3f}, cur_acc={cur_acc:.3f}, "
-          f"accuracy_drop={accuracy_drop:.3f}, ")
-          #f"should_retrain={should_retrain}")
-
-    # Log to MLflow (new run for monitoring step)
     with mlflow.start_run(run_name=f"evidently_{datetime.now().date()}"):
-        mlflow.log_artifact(output_path, artifact_path="../data/evidently_reports")
+        mlflow.log_artifact(output_path, artifact_path="evidently_reports")
         mlflow.log_metric("share_drifted_columns", share_drifted)
         mlflow.log_metric("accuracy_drop", accuracy_drop)
         mlflow.log_metric("dataset_drift_flag", int(dataset_drift))
@@ -258,6 +262,9 @@ def generate_evidently(input_path="../data/data_selected.csv",
         "accuracy_drop": accuracy_drop
     }
 
+# -----------------------------
+# 7. Decide retrain
+# -----------------------------
 def decide_retrain(**context):
     ti = context["ti"]
     ev_result = ti.xcom_pull(task_ids="generate_evidently")
@@ -273,7 +280,6 @@ def decide_retrain(**context):
     cur_acc       = ev_result["cur_acc"]
     accuracy_drop = ev_result["accuracy_drop"]
 
-    # thresholds you commented out before
     acc_drop_threshold = 0.05       # 5% absolute accuracy drop
     drift_share_threshold = 0.3     # >= 30% of features drifted
 
@@ -283,25 +289,18 @@ def decide_retrain(**context):
         or (accuracy_drop >= acc_drop_threshold)
     )
 
-    print(
-        f"should_retrain_from_metrics={should_retrain}"
-    )
-
-    # When you trigger the DAG manually, you can pass {"force_retrain": true}
     dag_run = context.get("dag_run")
     dag_conf = dag_run.conf if dag_run else {}
     force_retrain = bool(dag_conf.get("force_retrain", False))
 
-    
     execution_date = context.get("logical_date") or context.get("execution_date")
     if execution_date is not None:
         is_monday = execution_date.weekday() == 0  # Monday = 0
     else:
-        # Fallback to "now" if for some reason it's missing
         is_monday = datetime.utcnow().weekday() == 0
 
     if is_monday or force_retrain:
         should_retrain = True
 
-
-    return should_retrain   # ShortCircuitOperator expects True/False
+    print(f"should_retrain_from_metrics={should_retrain}")
+    return should_retrain

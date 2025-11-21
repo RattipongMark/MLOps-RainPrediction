@@ -8,6 +8,10 @@ import sys
 import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../script')))
 from task import load_data_from_api, preprocess_data, feature_selection, train_models, save_best_model, generate_evidently, decide_retrain
+import dagshub
+import mlflow
+
+dagshub.init(repo_owner='RattipongMark', repo_name='MLOps-RainPrediction', mlflow=True)
 
 with DAG(
     dag_id="rain_model_multi_task_refactored",

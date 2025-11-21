@@ -1,5 +1,7 @@
 from airflow import DAG
-from airflow.operators.python import PythonOperator, ShortCircuitOperator
+from airflow.operators.python import PythonOperator
+from airflow.operators.python import ShortCircuitOperator
+
 # from airflow.operators.shortcircuit import ShortCircuitOperator
 from datetime import datetime
 import sys

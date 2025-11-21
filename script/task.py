@@ -145,6 +145,7 @@ def train_models(input_path="data_selected.csv",
 
     return results
 
+
 def save_best_model(**context):
     ti = context["ti"]
     results = ti.xcom_pull(task_ids="train_models")
@@ -173,6 +174,7 @@ def save_best_model(**context):
     )
 
     print(f"Model '{registered_model_name}' version {model_version.version} is now in stage 'Production'.")
+
 
 def generate_evidently(input_path="data_selected.csv",
                        registered_model_name="rain_prediction_model",

@@ -34,20 +34,17 @@ def load_data_from_api(filename="data_clean.csv"):
     output_path = os.path.join(DATA_DIR, filename)
 
     url = (
-        "https://api.open-meteo.com/v1/forecast?"
-        "latitude=13.6513&longitude=100.4964&hourly="
-        "temperature_2m,relative_humidity_2m,dew_point_2m,"
-        "apparent_temperature,precipitation_probability,precipitation,"
-        "rain,vapour_pressure_deficit,et0_fao_evapotranspiration,visibility,"
-        "evapotranspiration,cloud_cover_mid,cloud_cover_high,cloud_cover_low,"
-        "cloud_cover,surface_pressure,pressure_msl,weather_code,"
-        "wind_speed_10m,wind_speed_80m,wind_speed_120m,wind_speed_180m,"
-        "wind_direction_10m,wind_direction_80m,wind_direction_120m,"
-        "wind_direction_180m,wind_gusts_10m,temperature_80m,temperature_120m,"
-        "temperature_180m,soil_moisture_27_to_81cm,soil_moisture_9_to_27cm,"
-        "soil_moisture_3_to_9cm,soil_moisture_1_to_3cm,soil_moisture_0_to_1cm,"
-        "soil_temperature_18cm,soil_temperature_0cm,soil_temperature_6cm,"
-        "soil_temperature_54cm"
+        "https://archive-api.open-meteo.com/v1/archive?"
+        "latitude=13.6513&longitude=100.4964&"
+        "start_date=2014-01-01&end_date=2025-01-01&"
+        "hourly=temperature_2m,relative_humidity_2m,dew_point_2m,"
+        "apparent_temperature,rain,vapour_pressure_deficit,et0_fao_evapotranspiration,"
+        "cloud_cover_high,cloud_cover_mid,cloud_cover_low,surface_pressure,"
+        "pressure_msl,weather_code,wind_gusts_10m,wind_direction_10m,wind_direction_100m,"
+        "wind_speed_100m,wind_speed_10m,soil_moisture_100_to_255cm,soil_moisture_28_to_100cm,"
+        "soil_moisture_7_to_28cm,soil_moisture_0_to_7cm,"
+        "soil_temperature_100_to_255cm,soil_temperature_28_to_100cm,"
+        "soil_temperature_0_to_7cm,soil_temperature_7_to_28cm"
     )
 
     response = requests.get(url)

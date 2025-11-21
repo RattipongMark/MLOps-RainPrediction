@@ -17,13 +17,13 @@ from evidently import ColumnMapping
 from airflow import DAG
 from airflow.operators.python import PythonOperator
 from datetime import datetime
-from my_pipeline_module import (
-    load_data,
-    preprocess_data,
-    feature_selection,
-    train_models,
-    generate_evidently
-)
+# from my_pipeline_module import (
+#     load_data,
+#     preprocess_data,
+#     feature_selection,
+#     train_models,
+#     generate_evidently
+# )
 
 import joblib
 import os

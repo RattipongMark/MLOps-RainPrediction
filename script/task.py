@@ -270,9 +270,9 @@ def generate_evidently(input_filename="data_selected.csv",
         print(f"[WARNING] Metric '{metric_name}' not found.")
         return None
 
-    data_drift_result   = get_metric_result(metrics, "DataDriftPreset")
-    target_drift_result = get_metric_result(metrics, "TargetDriftPreset")
-    cls_result          = get_metric_result(metrics, "ClassificationPreset")
+    data_drift_result   = get_metric_result(metrics, "DatasetDriftMetric")
+    target_drift_result = get_metric_result(metrics, "ColumnDriftMetric")
+    cls_result          = get_metric_result(metrics, "ClassificationQualityMetric")
 
     # data_drift_result = next(m for m in metrics if m["metric"] == "DataDriftPreset")["result"]
     # target_drift_result = next(m for m in metrics if m["metric"] == "TargetDriftPreset")["result"]
@@ -284,6 +284,13 @@ def generate_evidently(input_filename="data_selected.csv",
     ref_acc         = cls_result["reference"]["accuracy"]
     cur_acc         = cls_result["current"]["accuracy"]
     accuracy_drop   = ref_acc - cur_acc
+
+    print(f"Dataset drift: {dataset_drift}")
+    print(f"Share of drifted columns: {share_drifted:.2%}")
+    print(f"Target drift: {target_drift}")
+    print(f"Reference accuracy: {ref_acc:.4f}")
+    print(f"Current accuracy: {cur_acc:.4f}")
+    print(f"Accuracy drop: {accuracy_drop:.4f}")
 
     with mlflow.start_run(run_name=f"evidently_{datetime.now().date()}"):
         mlflow.log_artifact(output_path, artifact_path="evidently_reports")

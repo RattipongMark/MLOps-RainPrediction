@@ -36,7 +36,7 @@ def run_training():
     # =========================
     # Load data
     # =========================
-    df = pd.read_csv("training_data.csv")  # เปลี่ยน path ให้ตรงกับไฟล์จริง
+    df = pd.read_csv("../data/training_data.csv")  # เปลี่ยน path ให้ตรงกับไฟล์จริง
     features = df.drop("target", axis=1)
     target = df["target"]
 

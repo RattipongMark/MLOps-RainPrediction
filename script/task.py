@@ -19,7 +19,9 @@ from datetime import datetime
 # -----------------------------
 # 1. Load data
 # -----------------------------
-def load_data_from_api(output_path="../data/data_clean.csv"):
+
+
+def load_data_from_api(output_path="../../data/data_clean.csv"):
     url = (
         "https://archive-api.open-meteo.com/v1/archive?"
         "latitude=13.6513&longitude=100.4964&"

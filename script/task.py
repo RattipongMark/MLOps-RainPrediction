@@ -414,9 +414,9 @@ def generate_evidently(current_filename="current.csv",
     reference_path = os.path.join(DATA_DIR, reference_filename)
     output_path = os.path.join(DATA_DIR, output_filename)
 
-    df = pd.read_csv(input_path)
-    X = df.drop("target", axis=1)
-    y = df["target"]
+    #df = pd.read_csv(current_path)
+    #X = df.drop("target", axis=1)
+    #y = df["target"]
 
     client = MlflowClient()
     df_cur = pd.read_csv(current_path)
@@ -447,17 +447,17 @@ def generate_evidently(current_filename="current.csv",
         path="data/reference_data.csv",
         dst_path=DATA_DIR
     )
-    ref_df = pd.read_csv(ref_path)
-    ref_df_x = ref_df.drop("target", axis=1)
-    ref_df["prediction"] = model.predict(ref_df_x)
+    df_ref = pd.read_csv(ref_path)
+    df_ref_x = df_ref.drop("target", axis=1)
+    df_ref["prediction"] = model.predict(df_ref_x)
 
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
-    ref_df = X_train.copy()
-    cur_df = X_test.copy()
-    ref_df["target"] = y_train.values
-    cur_df["target"] = y_test.values
-    ref_df["prediction"] = model.predict(X_train)
-    cur_df["prediction"] = model.predict(X_test)
+    # X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
+    # ref_df = X_train.copy()
+    # cur_df = X_test.copy()
+    # ref_df["target"] = y_train.values
+    # cur_df["target"] = y_test.values
+    # ref_df["prediction"] = model.predict(X_train)
+    # cur_df["prediction"] = model.predict(X_test)
 
 
     # ---- add predictions ----
@@ -466,10 +466,10 @@ def generate_evidently(current_filename="current.csv",
         selected_features = json.load(f)
 
     # เลือกเฉพาะ features ที่โมเดลถูก train
-    df_ref_model = df_ref[selected_features]
+    #df_ref_model = df_ref[selected_features]
     df_cur_model = df_cur[selected_features]
 
-    df_ref["prediction"] = model.predict(df_ref_model)
+    #df_ref["prediction"] = model.predict(df_ref_model)
     df_cur["prediction"] = model.predict(df_cur_model)
     # df_ref["prediction"] = model.predict(df_ref.drop("target", axis=1))
     # df_cur["prediction"] = model.predict(df_cur.drop("target", axis=1))

@@ -57,6 +57,7 @@ OPEN_METEO_INTEVAL_API = (
 
 TODAY = date.today().strftime("%Y%m%d")
 TODAY_FILENAME = f"newdata_{TODAY}.csv"
+
 # -----------------------------
 # 1. Load data
 # -----------------------------
@@ -65,16 +66,22 @@ def load_data_from_api(output_filename=TODAY_FILENAME, ref_filename="yesterday.c
     ref_path = os.path.join(DATA_DIR, ref_filename)
     reference_path = os.path.join(DATA_DIR, "reference.csv")
 
-    # ---- check if today's data already exists ----
+    # ---------- NEW: Handle new day rollover ----------
     if os.path.exists(output_path):
-        print(f"[tasks] Today's data file already exists: {output_filename}. Skipping load.")
-        return
+        modified_date = datetime.fromtimestamp(os.path.getmtime(output_path)).date()
+        print(f"[tasks] Existing {output_filename} modified date: {modified_date}")
+        today = datetime.now().date()
 
-    # ---- backup current -> yesterday ----
-    if os.path.exists(ref_path):
-        print(f"[tasks] Backup: {ref_filename} exists, will update with current data later.")
-    elif os.path.exists(reference_path):
-        # ถ้า yesterday ไม่มี แต่ reference มี ให้ copy reference เป็น yesterday
+        if modified_date < today:
+            # yesterday.csv -> backup old today.csv
+            os.rename(output_path, ref_filename)
+            print("[tasks] Detected new day → moved old today.csv to yesterday.csv")
+        else:
+            print("[tasks] Today’s data already loaded. Skipping API call.")
+            return
+
+    # ---- backup yesterday if missing ----
+    if not os.path.exists(ref_path) and os.path.exists(reference_path):
         df_ref = pd.read_csv(reference_path)
         df_ref.to_csv(ref_path, index=False)
         print(f"[tasks] yesterday.csv missing, copied reference.csv -> yesterday.csv")
@@ -92,36 +99,44 @@ def load_data_from_api(output_filename=TODAY_FILENAME, ref_filename="yesterday.c
             df_new[col] = pd.to_numeric(df_new[col], errors='coerce')
     df_new = df_new.fillna(0)
 
-    # ---- combine with yesterday ----
-    if os.path.exists(ref_path):
-        df_ref = pd.read_csv(ref_path)
-        df_combined = pd.concat([df_ref, df_new], ignore_index=True)
-        df_combined = df_combined.tail(window_size)
-    else:
-        df_combined = df_new
-
-    print(f"[tasks] shape of loaded data: {df_combined.shape}")
-    print(f"[tasks] data head:\n{df_combined.head()}")
-    print(f"[tasks] data time:\n{df_combined[['time']]}")
-    print(f"[tasks] refer data time:\n{df_ref[['time']]}") if os.path.exists(ref_path) else None
-
-    # ---- save current ----
-    df_combined.to_csv(output_path, index=False)
-    print(f"[tasks] Current windowed data saved to {output_path}")
+    # ---- save raw current data temporarily ----
+    df_new.to_csv(output_path, index=False)
+    print(f"[tasks] Raw new data saved to {output_path}")
 
 
 # -----------------------------
-# 2. Preprocess
+# 2. Preprocess and combine
 # -----------------------------
-def preprocess_data(input_filename=TODAY_FILENAME, output_filename="data_preprocessed.csv"):
-    input_path = os.path.join(DATA_DIR, input_filename)
+def preprocess_and_combine(window_size=10000, input_filename=TODAY_FILENAME, ref_filename="yesterday.csv", output_filename="data_preprocessed.csv"):
+    today_path = os.path.join(DATA_DIR, input_filename)
+    ref_path = os.path.join(DATA_DIR, ref_filename)
     output_path = os.path.join(DATA_DIR, output_filename)
 
-    df = pd.read_csv(input_path)
-    df["target"] = (df["rain"] > 0.1).astype(int)
-    df = df.drop(["time", "rain", "weather_code"], axis=1)
-    df.to_csv(output_path, index=False)
-    print(f"[tasks] Preprocessed data saved to {output_path}")
+    # ---- load today's data ----
+    df_today = pd.read_csv(today_path)
+    df_today["target"] = (df_today["rain"] > 0.1).astype(int)
+    df_today = df_today.drop(["rain", "weather_code"], axis=1)  # keep time for concat
+
+    # ---- load yesterday / reference if exists ----
+    if os.path.exists(ref_path):
+        df_ref = pd.read_csv(ref_path)
+        df_ref["target"] = (df_ref["rain"] > 0.1).astype(int)
+        df_ref = df_ref.drop(["rain", "weather_code"], axis=1)
+        # ---- combine and keep latest window_size rows ----
+        df_combined = pd.concat([df_ref, df_today], ignore_index=True).tail(window_size)
+        print(f"[tasks] Combined data from {ref_filename} and {input_filename}, total rows: {len(df_combined)}")
+        print(f"dataframe columns: {df_combined.columns.tolist()}")
+        print(f"dataframe sample:\n{df_combined}")
+    else:
+        df_combined = df_today
+
+    # ---- drop time if not needed ----
+    if "time" in df_combined.columns:
+        df_combined = df_combined.drop(["time"], axis=1)
+
+    df_combined.to_csv(output_path, index=False)
+    print(f"[tasks] Preprocessed & combined data saved to {output_path}")
+
 
 # -----------------------------
 # 3. Feature selection

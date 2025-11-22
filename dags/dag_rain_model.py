@@ -1,6 +1,6 @@
 from airflow import DAG
 from airflow.operators.python import PythonOperator
-# from airflow.operators.python import ShortCircuitOperator
+from airflow.operators.python import ShortCircuitOperator
 
 # from airflow.operators.shortcircuit import ShortCircuitOperator
 from datetime import datetime
@@ -29,13 +29,12 @@ with DAG(
 
     generate_evidently_task = PythonOperator(task_id="generate_evidently", python_callable=generate_evidently)
 
-    # decide_retrain_task = ShortCircuitOperator(task_id="decide_retrain_task", python_callable=decide_retrain)
+    decide_retrain_task = ShortCircuitOperator(task_id="decide_retrain_task", python_callable=decide_retrain)
 
-    # train_models_task = PythonOperator(task_id="train_models", python_callable=train_models)
+    train_models_task = PythonOperator(task_id="train_models", python_callable=train_models)
 
-    # save_best_model_task = PythonOperator(task_id="save_best_model", python_callable=save_best_model)
+    save_best_model_task = PythonOperator(task_id="save_best_model", python_callable=save_best_model)
 
     # -----------------------------
 
-    load_data_task >> preprocess_task >> feature_selection_task >> generate_evidently_task
-    # >> decide_retrain_task >> train_models_task >> save_best_model_task
+    load_data_task >> preprocess_task >> feature_selection_task >> generate_evidently_task >> decide_retrain_task >> train_models_task >> save_best_model_task

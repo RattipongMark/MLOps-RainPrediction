@@ -26,7 +26,7 @@ def run_training():
     if LOCAL_DIR not in sys.path:
         sys.path.insert(0, LOCAL_DIR)
 
-    from script.train_and_log_models import run_training
+    from temp.train_and_log_models import run_training
 
     os.chdir(LOCAL_DIR)
     run_training()

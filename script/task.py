@@ -351,8 +351,8 @@ def train_models(input_filename="reference.csv",
         with mlflow.start_run(run_name=name):
             mlflow.log_artifact(os.path.join(DATA_DIR, "reference_data.csv"), artifact_path="data")
 
-            artifact_uri = mlflow.get_artifact_uri("data/reference_data.csv")
-            dataset = mlflow.data.from_pandas(df, name="training_data", source=artifact_uri)
+            # artifact_uri = mlflow.get_artifact_uri("data/reference_data.csv")
+            dataset = mlflow.data.from_pandas(df, name="training_data")
             mlflow.log_input(dataset)
 
             model.fit(X_train, y_train)
@@ -516,6 +516,7 @@ def generate_evidently(current_filename="current.csv",
     print(f"Reference acc: {ref_acc:.4f}, Current acc: {cur_acc:.4f}, Drop: {accuracy_drop:.4f}")
 
     # ---- log metrics to MLflow ----
+    mlflow.set_experiment("rain_model_evidently")
     with mlflow.start_run(run_name=f"evidently_{datetime.now().date()}"):
         mlflow.log_artifact(output_path, artifact_path="evidently_reports")
         mlflow.log_metric("share_drifted_columns", share_drifted)

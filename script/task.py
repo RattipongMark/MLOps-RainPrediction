@@ -508,6 +508,7 @@ def generate_evidently(current_filename="current.csv",
     print(f"Reference acc: {ref_acc:.4f}, Current acc: {cur_acc:.4f}, Drop: {accuracy_drop:.4f}")
 
     # ---- log metrics to MLflow ----
+    mlflow.set_experiment("rain_model_evidently")
     with mlflow.start_run(run_name=f"evidently_{datetime.now().date()}"):
         mlflow.log_artifact(output_path, artifact_path="evidently_reports")
         mlflow.log_metric("share_drifted_columns", share_drifted)

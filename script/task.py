@@ -548,7 +548,7 @@ def decide_retrain(current_filename="current.csv",
         return True
 
     var_value = Variable.get("force_retrain", default_var="false")
-    force_retrain = var_value.lower() == "true"
+    force_retrain_from_var = var_value.lower() == "true"
 
     dataset_drift = ev_result["dataset_drift"]
     share_drifted = ev_result["share_drifted"]
@@ -566,9 +566,9 @@ def decide_retrain(current_filename="current.csv",
         or (accuracy_drop >= acc_drop_threshold)
     )
 
-    #dag_run = context.get("dag_run")
-    #dag_conf = dag_run.conf if dag_run else {}
-    #force_retrain = bool(dag_conf.get("force_retrain", False))
+    dag_run = context.get("dag_run")
+    dag_conf = dag_run.conf if dag_run else {}
+    force_retrain_from_run_config = bool(dag_conf.get("force_retrain", False))
 
     execution_date = context.get("logical_date") or context.get("execution_date")
     if execution_date is not None:
@@ -576,7 +576,7 @@ def decide_retrain(current_filename="current.csv",
     else:
         is_monday = datetime.utcnow().weekday() == 0
 
-    if is_monday or force_retrain:
+    if is_monday or force_retrain_from_var or force_retrain_from_run_config:
         should_retrain = True
 
     print(f"should_retrain_from_metrics={should_retrain}")

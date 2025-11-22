@@ -345,8 +345,8 @@ def train_models(input_filename="reference.csv",
     }
 
     results = []
+    os.rename(input_path, os.path.join(DATA_DIR, "reference_data.csv"))
     for name, model in models.items():
-            os.rename(input_path, os.path.join(DATA_DIR, "reference_data.csv"))
             mlflow.log_artifact(os.path.join(DATA_DIR, "reference_data.csv"), artifact_path="data")
 
             # artifact_uri = mlflow.get_artifact_uri("data/reference_data.csv")

@@ -122,59 +122,68 @@ def preprocess_data(
     ref_path = os.path.join(DATA_DIR, ref_filename)
     output_path = os.path.join(DATA_DIR, output_filename)
 
-    # ---------------- Mapping API → Train ----------------
-    api_to_train_map = {
-        "Soil Temperature (0 cm)": "Soil Temperature (0-7 cm)",
-        "Soil Temperature (6 cm)": "Soil Temperature (0-7 cm)",
-        "Soil Temperature (18 cm)": "Soil Temperature (7-28 cm)",
-        "Soil Temperature (54 cm)": "Soil Temperature (28-100 cm)",
-        "Soil Moisture (0-1 cm)": "Soil Moisture (0-7 cm)",
-        "Soil Moisture (1-3 cm)": "Soil Moisture (0-7 cm)",
-        "Soil Moisture (3-9 cm)": "Soil Moisture (0-7 cm)",
-        "Soil Moisture (9-27 cm)": "Soil Moisture (7-28 cm)",
-        "Soil Moisture (27-81 cm)": "Soil Moisture (28-100 cm)"
-    }
-
     # ---------------- Load today's data ----------------
     df_today = pd.read_csv(today_path)
 
     # Target
     df_today["target"] = (df_today["rain"] > 0.1).astype(int)
-    df_today = df_today.drop(["rain", "weather_code"], axis=1)  # keep time for concat
+    df_today = df_today.drop(["rain", "weather_code"], axis=1)  # keep time
 
     # ---------------- Load yesterday reference & concat ----------------
     if os.path.exists(ref_path):
         df_ref = pd.read_csv(ref_path)
-
-        # concat & keep only last N rows
         df_combined = pd.concat([df_ref, df_today], ignore_index=True).tail(window_size)
-
-        print(f"[tasks] Combined data from {ref_filename} and {input_filename}, total rows: {len(df_combined)}")
-        print(f"dataframe columns: {df_combined.columns.tolist()}")
     else:
         df_combined = df_today
 
-    # ---------------- Apply Preprocess (Mapping + Column Merge) ----------------
-    df_processed = {}
-    grouped = {}
+    # ---------------- Normalize Columns → Match Training ----------------
+    rename_map = {
+        # Soil Moisture groups
+        "soil_moisture_0_to_1cm": "soil_moisture_0_to_7cm",
+        "soil_moisture_1_to_3cm": "soil_moisture_0_to_7cm",
+        "soil_moisture_3_to_9cm": "soil_moisture_0_to_7cm",
 
-    for col in df_combined.columns:
-        if col in api_to_train_map:
-            new_col = api_to_train_map[col]
-            grouped.setdefault(new_col, []).append(df_combined[col])
-        else:
-            grouped.setdefault(col, []).append(df_combined[col])
+        "soil_moisture_9_to_27cm": "soil_moisture_7_to_28cm",
+        "soil_moisture_27_to_81cm": "soil_moisture_28_to_100cm",
 
-    # merge by mean
-    for new_col, series_list in grouped.items():
-        if len(series_list) == 1:
-            df_processed[new_col] = series_list[0]
-        else:
-            df_processed[new_col] = pd.concat(series_list, axis=1).mean(axis=1)
+        # Soil Temperature groups
+        "soil_temperature_0cm":    "soil_temperature_0_to_7cm",
+        "soil_temperature_6cm":    "soil_temperature_0_to_7cm",
 
-    df_final = pd.DataFrame(df_processed)
+        "soil_temperature_18cm":   "soil_temperature_7_to_28cm",
+        "soil_temperature_54cm":   "soil_temperature_28_to_100cm",
+    }
 
-    # drop time if exists
+    df_renamed = df_combined.rename(columns=rename_map)
+
+    # ---------------- Combine mapped columns (mean) ----------------
+    final_cols = {}
+    for col in df_renamed.columns:
+        base = rename_map.get(col, col)
+        final_cols.setdefault(base, []).append(df_renamed[col])
+
+    df_final = pd.DataFrame({
+        col: pd.concat(cols, axis=1).mean(axis=1)
+        for col, cols in final_cols.items()
+    })
+
+    # ---------------- Ensure required training columns exist ----------------
+    required_features = [
+        'temperature_2m', 'relative_humidity_2m', 'dew_point_2m',
+        'cloud_cover_high', 'cloud_cover_mid', 'cloud_cover_low',
+        'surface_pressure', 'wind_gusts_10m', 'wind_direction_10m',
+        'wind_speed_100m', 
+        'soil_moisture_100_to_255cm', 
+        'soil_moisture_28_to_100cm', 
+        'soil_moisture_7_to_28cm', 
+        'soil_moisture_0_to_7cm'
+    ]
+
+    for col in required_features:
+        if col not in df_final.columns:
+            df_final[col] = 0       # or df_final[col].fillna(0)
+
+    # drop time
     if "time" in df_final.columns:
         df_final = df_final.drop(columns=["time"])
 
@@ -183,6 +192,7 @@ def preprocess_data(
     print(f"[tasks] Preprocessed & combined data saved to {output_path}")
 
     return df_final
+
 
 
 

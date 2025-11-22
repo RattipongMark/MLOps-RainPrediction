@@ -68,7 +68,7 @@ TODAY_FILENAME = f"newdata_{TODAY}.csv"
 def load_data_from_api(output_filename=TODAY_FILENAME, ref_filename="yesterday.csv", window_size=10000):
     output_path = os.path.join(DATA_DIR, output_filename)
     ref_path = os.path.join(DATA_DIR, ref_filename)
-    reference_path = os.path.join(DATA_DIR, "reference.csv")
+    reference_path = os.path.join(DATA_DIR, "raw_reference.csv")
 
     # ---------- NEW: Handle new day rollover ----------
     if os.path.exists(output_path):
@@ -198,6 +198,8 @@ def feature_selection(input_filename="data_preprocessed.csv",
                       features_filename="selected_features.json",
                       importance_filename="feature_importance.csv",
                       output_filename="current.csv",
+                      raw_reference_filename="raw_reference.csv",
+                      reference_output_filename="reference.csv",
                       corr_threshold=0.7,
                       importance_cutoff=0.90):
 
@@ -205,6 +207,8 @@ def feature_selection(input_filename="data_preprocessed.csv",
     features_path = os.path.join(DATA_DIR, features_filename)
     importance_path = os.path.join(DATA_DIR, importance_filename)
     output_path = os.path.join(DATA_DIR, output_filename)
+    raw_reference_path = os.path.join(DATA_DIR, raw_reference_filename)
+    reference_path = os.path.join(DATA_DIR, reference_output_filename)
 
     print("[tasks] FEATURE SELECTION START")
     df = pd.read_csv(input_path)
@@ -265,6 +269,10 @@ def feature_selection(input_filename="data_preprocessed.csv",
     # Save reduced dataset
     df_selected = df[final_selected_features + ["target"]]
     df_selected.to_csv(output_path, index=False)
+
+    df_raw_ref = pd.read_csv(raw_reference_path)
+    df_raw_ref_selected = df_raw_ref[final_selected_features + ["target"]]
+    df_raw_ref_selected.to_csv(reference_path, index=False)
 
     print("[tasks] FEATURE SELECTION COMPLETE")
 

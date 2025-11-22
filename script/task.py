@@ -102,6 +102,8 @@ def load_data_from_api(output_filename=TODAY_FILENAME, ref_filename="yesterday.c
 
     print(f"[tasks] shape of loaded data: {df_combined.shape}")
     print(f"[tasks] data head:\n{df_combined.head()}")
+    print(f"[tasks] data time:\n{df_combined[['time']]}")
+    print(f"[tasks] refer data time:\n{df_ref[['time']]}") if os.path.exists(ref_path) else None
 
     # ---- save current ----
     df_combined.to_csv(output_path, index=False)

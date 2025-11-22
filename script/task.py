@@ -7,7 +7,7 @@ from xgboost import XGBClassifier
 import lightgbm as lgb
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import accuracy_score
+from sklearn.metrics import accuracy_score, roc_auc_score
 import dagshub
 import mlflow
 from mlflow import MlflowClient
@@ -358,7 +358,16 @@ def train_models(input_filename="reference.csv",
             model.fit(X_train, y_train)
             y_pred = model.predict(X_test)
             test_acc = accuracy_score(y_test, y_pred)
+            train_acc = accuracy_score(y_train, model.predict(X_train))
+            test_auc = roc_auc_score(y_test, model.predict_proba(X_test)[:,1])
+            train_auc = roc_auc_score(y_train, model.predict_proba(X_train)[:,1])
             mlflow.log_metric("test_accuracy", test_acc)
+            mlflow.log_metric("train_accuracy", train_acc)
+            mlflow.log_metric("test_auc", test_auc)
+            mlflow.log_metric("train_auc", train_auc)
+
+            params = model.get_params()
+            mlflow.log_params(params)
 
             artifact_path = f"model_{name}"
             if name == "XGBoost":

@@ -63,7 +63,7 @@ TODAY_FILENAME = f"newdata_{TODAY}.csv"
 # -----------------------------
 # 1. Load data
 # -----------------------------
-def load_data_from_api(output_filename=TODAY_FILENAME, ref_filename="yesterday.csv", window_size=10000):
+def load_data_from_api(output_filename=TODAY_FILENAME, ref_filename="yesterday.csv", window_size=100000):
     output_path = os.path.join(DATA_DIR, output_filename)
     ref_path = os.path.join(DATA_DIR, ref_filename)
     reference_path = os.path.join(DATA_DIR, "raw_reference.csv")

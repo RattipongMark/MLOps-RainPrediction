@@ -107,7 +107,7 @@ def load_data_from_api(output_filename=TODAY_FILENAME, ref_filename="yesterday.c
 # -----------------------------
 # 2. Preprocess and combine
 # -----------------------------
-def preprocess_and_combine(window_size=10000, input_filename=TODAY_FILENAME, ref_filename="yesterday.csv", output_filename="data_preprocessed.csv"):
+def preprocess_data(window_size=10000, input_filename=TODAY_FILENAME, ref_filename="yesterday.csv", output_filename="data_preprocessed.csv"):
     today_path = os.path.join(DATA_DIR, input_filename)
     ref_path = os.path.join(DATA_DIR, ref_filename)
     output_path = os.path.join(DATA_DIR, output_filename)

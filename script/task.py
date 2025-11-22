@@ -53,7 +53,7 @@ OPEN_METEO_INTEVAL_API = (
     "apparent_temperature,rain,vapour_pressure_deficit,et0_fao_evapotranspiration,"
     "cloud_cover_high,cloud_cover_mid,cloud_cover_low,surface_pressure,"
     "pressure_msl,weather_code,wind_gusts_10m,wind_direction_10m,wind_direction_100m,"
-    "wind_speed_100m,wind_speed_10m,soil_moisture_100_to_255cm,soil_moisture_28_to_100cm,"
+    "wind_speed_100m,wind_speed_10m,soil_moisture_28_to_100cm,"
     "soil_moisture_7_to_28cm,soil_moisture_0_to_7cm,"
     "soil_temperature_100_to_255cm,soil_temperature_28_to_100cm,"
     "soil_temperature_0_to_7cm,soil_temperature_7_to_28cm"

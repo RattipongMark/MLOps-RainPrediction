@@ -88,6 +88,7 @@ def load_data_from_api(output_filename=TODAY_FILENAME, ref_filename="yesterday.c
     if not os.path.exists(ref_path) and os.path.exists(reference_path):
         df_ref = pd.read_csv(reference_path)
         df_ref.to_csv(ref_path, index=False)
+        print(df_ref.head())
         print(f"[tasks] yesterday.csv missing, copied reference.csv -> yesterday.csv")
 
     # ---- load new data from API ----
@@ -102,6 +103,9 @@ def load_data_from_api(output_filename=TODAY_FILENAME, ref_filename="yesterday.c
         if col != "time":
             df_new[col] = pd.to_numeric(df_new[col], errors='coerce')
     df_new = df_new.fillna(0)
+
+    print(f"[tasks] Loaded new data from API, rows: {len(df_new)}")
+    print(df_new.head())
 
     # ---- save raw current data temporarily ----
     df_new.to_csv(output_path, index=False)
@@ -182,6 +186,9 @@ def preprocess_data(
     # drop time if exists
     if "time" in df_final.columns:
         df_final = df_final.drop(columns=["time"])
+
+    print(f"[tasks] Preprocessing complete, final columns: {df_final.columns.tolist()}")
+    print(df_final.head())
 
     # ---------------- Save ----------------
     df_final.to_csv(output_path, index=False)
@@ -269,10 +276,13 @@ def feature_selection(input_filename="data_preprocessed.csv",
     # Save reduced dataset
     df_selected = df[final_selected_features + ["target"]]
     df_selected.to_csv(output_path, index=False)
+    print(f"[tasks] Selected features is {final_selected_features}")
+    print(df_selected.head(10))
 
     df_raw_ref = pd.read_csv(raw_reference_path)
     df_raw_ref_selected = df_raw_ref[final_selected_features + ["target"]]
     df_raw_ref_selected.to_csv(reference_path, index=False)
+    print(df_raw_ref_selected.head(10))
 
     print("[tasks] FEATURE SELECTION COMPLETE")
 

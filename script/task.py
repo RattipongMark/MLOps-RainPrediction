@@ -15,6 +15,7 @@ from evidently.report import Report
 from evidently.metric_preset import DataDriftPreset, TargetDriftPreset, ClassificationPreset
 from evidently import ColumnMapping
 from datetime import datetime
+from datetime import date
 
 # -----------------------------
 # Global: Data directory
@@ -57,14 +58,28 @@ OPEN_METEO_INTEVAL_API = (
 # -----------------------------
 # 1. Load data
 # -----------------------------
-def load_data_from_api(output_filename="newdata.csv", ref_filename="yesterday.csv", window_size=10000):
+def load_data_from_api(output_filename=None, ref_filename="yesterday.csv", window_size=10000):
+    today_str = date.today().strftime("%Y%m%d")
+    if output_filename is None:
+        output_filename = f"newdata_{today_str}.csv"
+
     output_path = os.path.join(DATA_DIR, output_filename)
     ref_path = os.path.join(DATA_DIR, ref_filename)
+    reference_path = os.path.join(DATA_DIR, "reference.csv")
 
-    # ---- backup current.csv เป็น yesterday.csv ----
+    # ---- check if today's data already exists ----
     if os.path.exists(output_path):
-        os.replace(output_path, ref_path)  # current -> yesterday
-        print(f"[tasks] Backup: {output_filename} -> {ref_filename}")
+        print(f"[tasks] Today's data file already exists: {output_filename}. Skipping load.")
+        return
+
+    # ---- backup current -> yesterday ----
+    if os.path.exists(ref_path):
+        print(f"[tasks] Backup: {ref_filename} exists, will update with current data later.")
+    elif os.path.exists(reference_path):
+        # ถ้า yesterday ไม่มี แต่ reference มี ให้ copy reference เป็น yesterday
+        df_ref = pd.read_csv(reference_path)
+        df_ref.to_csv(ref_path, index=False)
+        print(f"[tasks] yesterday.csv missing, copied reference.csv -> yesterday.csv")
 
     # ---- load new data from API ----
     response = requests.get(OPEN_METEO_FORECAST_API)
@@ -79,20 +94,21 @@ def load_data_from_api(output_filename="newdata.csv", ref_filename="yesterday.cs
             df_new[col] = pd.to_numeric(df_new[col], errors='coerce')
     df_new = df_new.fillna(0)
 
-    # ---- combine with yesterday if exists ----
+    # ---- combine with yesterday ----
     if os.path.exists(ref_path):
         df_ref = pd.read_csv(ref_path)
         df_combined = pd.concat([df_ref, df_new], ignore_index=True)
-        df_combined = df_combined.tail(window_size)  # keep latest rows only
+        df_combined = df_combined.tail(window_size)
     else:
         df_combined = df_new
 
-    print(f"shape of loaded data: {df_combined.shape}")
-    print(f"data:n{df_combined.head()}")
+    print(f"[tasks] shape of loaded data: {df_combined.shape}")
+    print(f"[tasks] data head:\n{df_combined.head()}")
 
     # ---- save current ----
     df_combined.to_csv(output_path, index=False)
     print(f"[tasks] Current windowed data saved to {output_path}")
+
 
 # -----------------------------
 # 2. Preprocess

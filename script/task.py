@@ -18,6 +18,7 @@ from datetime import datetime
 from datetime import date
 from airflow.models import Variable
 
+import subprocess
 
 # -----------------------------
 # Global: Data directory
@@ -393,14 +394,14 @@ def upload_dataset_to_dagshub():
     os.chdir(REPO_ROOT)  # change to repo root for dagshub upload
     print("cwd : after ", os.getcwd())
 
-    # res = subprocess.run(
-    #     ["git", "rev-parse", "HEAD"],
-    #     check=True,
-    #     capture_output=True,
-    #     text=True,
-    # )
-    # last_commit = res.stdout.strip()
-    # print("[DEBUG] last_commit from git:", last_commit)
+    res = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    last_commit = res.stdout.strip()
+    print("[DEBUG] last_commit from git:", last_commit)
 
     dagshub.upload_files(repo, ref_data_path, remote_path=dags_hub_dvc_path, versioning="dvc")
 

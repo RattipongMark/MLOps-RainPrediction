@@ -184,6 +184,7 @@ def preprocess_data(
     else:
         df_combined = df_today_final
 
+    df_combined = df_combined.drop(columns=["Unnamed: 0"], errors='ignore')
     print(f"[tasks] Preprocessing complete, final columns: {df_combined.columns.tolist()}")
     print(df_combined.head())
     print(df_combined.info())

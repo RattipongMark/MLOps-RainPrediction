@@ -387,7 +387,11 @@ def upload_dataset_to_dagshub():
     ref_data_path = os.path.join(DATA_DIR, "reference_data.csv")
     dags_hub_dvc_path = "data/reference_data.csv"
     print("cwd : ", os.getcwd())
-    os.chdir(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+    DAGS_DIR = os.path.dirname(os.path.abspath(__file__))      # <repo>/dags
+    REPO_ROOT = os.path.abspath(os.path.join(DAGS_DIR, ".."))  # <repo>
+    os.chdir(REPO_ROOT)  # change to repo root for dagshub upload
+    print("cwd : after ", os.getcwd())
+
     dagshub.upload_files(repo, ref_data_path, remote_path=dags_hub_dvc_path, versioning="dvc")
 
 

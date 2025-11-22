@@ -310,6 +310,9 @@ def feature_selection(input_filename="data_preprocessed.csv",
         print("[validate_features] Columns match and no missing values found ✅")
     validate_features(df_selected, df_raw_ref_selected)
 
+    print(df_selected.info())
+    print(df_raw_ref_selected.info())
+
     print("[tasks] FEATURE SELECTION COMPLETE")
 
 
@@ -424,8 +427,18 @@ def generate_evidently(current_filename="current.csv",
         return {"first_run": True}
 
     # ---- add predictions ----
-    df_ref["prediction"] = model.predict(df_ref.drop("target", axis=1))
-    df_cur["prediction"] = model.predict(df_cur.drop("target", axis=1))
+    features_path = os.path.join(DATA_DIR, "selected_features.json")
+    with open(features_path) as f:
+        selected_features = json.load(f)
+
+    # เลือกเฉพาะ features ที่โมเดลถูก train
+    df_ref_model = df_ref[selected_features]
+    df_cur_model = df_cur[selected_features]
+
+    df_ref["prediction"] = model.predict(df_ref_model)
+    df_cur["prediction"] = model.predict(df_cur_model)
+    # df_ref["prediction"] = model.predict(df_ref.drop("target", axis=1))
+    # df_cur["prediction"] = model.predict(df_cur.drop("target", axis=1))
 
     # ---- run Evidently ----
     column_mapping = ColumnMapping(target="target", prediction="prediction")

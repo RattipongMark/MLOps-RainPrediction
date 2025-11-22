@@ -122,22 +122,8 @@ def preprocess_data(
     ref_path = os.path.join(DATA_DIR, ref_filename)
     output_path = os.path.join(DATA_DIR, output_filename)
 
-    # ---------------- Load today's data ----------------
-    df_today = pd.read_csv(today_path)
-
-    # Target
-    df_today["target"] = (df_today["rain"] > 0.1).astype(int)
-    df_today = df_today.drop(["rain", "weather_code"], axis=1)  # keep time
-
-    # ---------------- Load yesterday reference & concat ----------------
-    if os.path.exists(ref_path):
-        df_ref = pd.read_csv(ref_path)
-        df_combined = pd.concat([df_ref, df_today], ignore_index=True).tail(window_size)
-    else:
-        df_combined = df_today
-
-    # ---------------- Normalize Columns → Match Training ----------------
-    rename_map = {
+    # ---------------- Mapping API → Train ----------------
+    api_to_train_map = {
         # Soil Moisture groups
         "soil_moisture_0_to_1cm": "soil_moisture_0_to_7cm",
         "soil_moisture_1_to_3cm": "soil_moisture_0_to_7cm",
@@ -154,36 +140,46 @@ def preprocess_data(
         "soil_temperature_54cm":   "soil_temperature_28_to_100cm",
     }
 
-    df_renamed = df_combined.rename(columns=rename_map)
+    # ---------------- Load today's data ----------------
+    df_today = pd.read_csv(today_path)
 
-    # ---------------- Combine mapped columns (mean) ----------------
-    final_cols = {}
-    for col in df_renamed.columns:
-        base = rename_map.get(col, col)
-        final_cols.setdefault(base, []).append(df_renamed[col])
+    # Target
+    df_today["target"] = (df_today["rain"] > 0.1).astype(int)
+    df_today = df_today.drop(["rain", "weather_code"], axis=1)  # keep time for concat
 
-    df_final = pd.DataFrame({
-        col: pd.concat(cols, axis=1).mean(axis=1)
-        for col, cols in final_cols.items()
-    })
+    # ---------------- Load yesterday reference & concat ----------------
+    if os.path.exists(ref_path):
+        df_ref = pd.read_csv(ref_path)
 
-    # ---------------- Ensure required training columns exist ----------------
-    required_features = [
-        'temperature_2m', 'relative_humidity_2m', 'dew_point_2m',
-        'cloud_cover_high', 'cloud_cover_mid', 'cloud_cover_low',
-        'surface_pressure', 'wind_gusts_10m', 'wind_direction_10m',
-        'wind_speed_100m', 
-        'soil_moisture_100_to_255cm', 
-        'soil_moisture_28_to_100cm', 
-        'soil_moisture_7_to_28cm', 
-        'soil_moisture_0_to_7cm'
-    ]
+        # concat & keep only last N rows
+        df_combined = pd.concat([df_ref, df_today], ignore_index=True).tail(window_size)
 
-    for col in required_features:
-        if col not in df_final.columns:
-            df_final[col] = 0       # or df_final[col].fillna(0)
+        print(f"[tasks] Combined data from {ref_filename} and {input_filename}, total rows: {len(df_combined)}")
+        print(f"dataframe columns: {df_combined.columns.tolist()}")
+    else:
+        df_combined = df_today
 
-    # drop time
+    # ---------------- Apply Preprocess (Mapping + Column Merge) ----------------
+    df_processed = {}
+    grouped = {}
+
+    for col in df_combined.columns:
+        if col in api_to_train_map:
+            new_col = api_to_train_map[col]
+            grouped.setdefault(new_col, []).append(df_combined[col])
+        else:
+            grouped.setdefault(col, []).append(df_combined[col])
+
+    # merge by mean
+    for new_col, series_list in grouped.items():
+        if len(series_list) == 1:
+            df_processed[new_col] = series_list[0]
+        else:
+            df_processed[new_col] = pd.concat(series_list, axis=1).mean(axis=1)
+
+    df_final = pd.DataFrame(df_processed)
+
+    # drop time if exists
     if "time" in df_final.columns:
         df_final = df_final.drop(columns=["time"])
 
@@ -192,7 +188,6 @@ def preprocess_data(
     print(f"[tasks] Preprocessed & combined data saved to {output_path}")
 
     return df_final
-
 
 
 

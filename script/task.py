@@ -501,6 +501,7 @@ def decide_retrain(current_filename="current.csv",
 
     if ev_result.get("first_run", False):
         print("First run detected, proceeding to train model.")
+        return True
 
     dataset_drift = ev_result["dataset_drift"]
     share_drifted = ev_result["share_drifted"]

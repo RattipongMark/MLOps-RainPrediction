@@ -186,6 +186,7 @@ def preprocess_data(
 
     print(f"[tasks] Preprocessing complete, final columns: {df_combined.columns.tolist()}")
     print(df_combined.head())
+    print(df_combined.info())
 
     # ---------------- Save ----------------
     df_combined.to_csv(output_path, index=False)

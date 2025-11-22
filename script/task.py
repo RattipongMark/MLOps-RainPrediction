@@ -149,7 +149,13 @@ def train_models(input_filename="data_selected.csv",
 
     results = []
     for name, model in models.items():
-        with mlflow.start_run(run_name=name):
+            os.rename(input_path, os.path.join(DATA_DIR, "reference_data.csv"))
+            mlflow.log_artifact(os.path.join(DATA_DIR, "reference_data.csv"), artifact_path="data")
+
+            artifact_uri = mlflow.get_artifact_uri("data/reference_data.csv")
+            dataset = mlflow.data.from_pandas(df, name="training_data", source=artifact_uri)
+            mlflow.log_input(dataset)
+
             model.fit(X_train, y_train)
             y_pred = model.predict(X_test)
             test_acc = accuracy_score(y_test, y_pred)
@@ -189,14 +195,15 @@ def save_best_model(**context):
     print(f"Registered model version: name={registered_model_name}, version={model_version.version}")
 
     client = MlflowClient()
-    client.transition_model_version_stage(
+    client.set_registered_model_alias(
         name=registered_model_name,
+        alias="Production",
         version=model_version.version,
-        stage="Production",
-        archive_existing_versions=True
     )
 
     print(f"Model '{registered_model_name}' version {model_version.version} is now in stage 'Production'.")
+
+
 
 # -----------------------------
 # 6. Generate Evidently report
@@ -212,14 +219,27 @@ def generate_evidently(input_filename="data_selected.csv",
     X = df.drop("target", axis=1)
     y = df["target"]
 
+    client = MlflowClient()
     try:
-        model_uri = f"models:/{registered_model_name}/Production"
+        model_uri = f"models:/{registered_model_name}@Production"
         model = mlflow.pyfunc.load_model(model_uri)
+        model_version = client.get_model_version_by_alias(registered_model_name, "Production")
     except Exception as e:
         if "Model not found" in str(e) or "No versions of model" in str(e) or "No version is in the specified stage" in str(e):
             print("[INFO] No Production model yet. First run.")
             return {"first_run": True}
         raise e
+
+    run_id = model_version.run_id
+    
+    ref_path = client.download_artifacts(
+        run_id=run_id,
+        path="data/reference_data.csv",
+        dst_path=DATA_DIR
+    )
+    ref_df = pd.read_csv(ref_path)
+    ref_df_x = ref_df.drop("target", axis=1)
+    ref_df["prediction"] = model.predict(ref_df_x)
 
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
     ref_df = X_train.copy()

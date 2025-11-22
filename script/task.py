@@ -87,6 +87,9 @@ def load_data_from_api(output_filename="newdata.csv", ref_filename="yesterday.cs
     else:
         df_combined = df_new
 
+    print(f"shape of loaded data: {df_combined.shape}")
+    print(f"data:n{df_combined.head()}")
+
     # ---- save current ----
     df_combined.to_csv(output_path, index=False)
     print(f"[tasks] Current windowed data saved to {output_path}")

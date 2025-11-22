@@ -16,6 +16,7 @@ from evidently.metric_preset import DataDriftPreset, TargetDriftPreset, Classifi
 from evidently import ColumnMapping
 from datetime import datetime
 from datetime import date
+from airflow.models import Variable
 
 # -----------------------------
 # Global: Data directory
@@ -372,6 +373,13 @@ def train_models(input_filename="reference.csv",
 
     return results
 
+def upload_dataset_to_dagshub():
+    repo = "RattipongMark/MLOps-RainPrediction"
+    ref_data_path = os.path.join(DATA_DIR, "reference_data.csv")
+    dags_hub_dvc_path = "data/reference_data.csv"
+    dagshub.upload_files(repo, ref_data_path, remote_path=dags_hub_dvc_path, versioning="dvc")
+
+
 # -----------------------------
 # 5. save best model
 # -----------------------------
@@ -538,6 +546,9 @@ def decide_retrain(current_filename="current.csv",
         print("First run detected, proceeding to train model.")
         return True
 
+    var_value = Variable.get("force_retrain", default_var="false")
+    force_retrain = var_value.lower() == "true"
+
     dataset_drift = ev_result["dataset_drift"]
     share_drifted = ev_result["share_drifted"]
     target_drift  = ev_result["target_drift"]
@@ -554,9 +565,9 @@ def decide_retrain(current_filename="current.csv",
         or (accuracy_drop >= acc_drop_threshold)
     )
 
-    dag_run = context.get("dag_run")
-    dag_conf = dag_run.conf if dag_run else {}
-    force_retrain = bool(dag_conf.get("force_retrain", False))
+    #dag_run = context.get("dag_run")
+    #dag_conf = dag_run.conf if dag_run else {}
+    #force_retrain = bool(dag_conf.get("force_retrain", False))
 
     execution_date = context.get("logical_date") or context.get("execution_date")
     if execution_date is not None:

@@ -27,51 +27,74 @@ def get_data_dir():
 
 DATA_DIR = get_data_dir()  # ใช้ทุกฟังก์ชัน
 
+OPEN_METEO_FORECAST_API = (
+    "https://api.open-meteo.com/v1/forecast?"
+    "latitude=13.6513&longitude=100.4964&"
+    "hourly=temperature_2m,relative_humidity_2m,dew_point_2m,"
+    "apparent_temperature,rain,vapour_pressure_deficit,et0_fao_evapotranspiration,"
+    "cloud_cover_high,cloud_cover_mid,cloud_cover_low,surface_pressure,"
+    "pressure_msl,weather_code,wind_gusts_10m,wind_direction_10m,wind_direction_100m,"
+    "wind_speed_100m,wind_speed_10m,soil_moisture_100_to_255cm,soil_moisture_28_to_100cm,"
+    "soil_moisture_7_to_28cm,soil_moisture_0_to_7cm,"
+    "soil_temperature_100_to_255cm,soil_temperature_28_to_100cm,"
+    "soil_temperature_0_to_7cm,soil_temperature_7_to_28cm"
+)
+
+OPEN_METEO_INTEVAL_API = (
+    "https://archive-api.open-meteo.com/v1/archive?"
+    "latitude=13.6513&longitude=100.4964&"
+    "start_date=2014-01-01&end_date=2025-01-01&"
+    "hourly=temperature_2m,relative_humidity_2m,dew_point_2m,"
+    "apparent_temperature,rain,vapour_pressure_deficit,et0_fao_evapotranspiration,"
+    "cloud_cover_high,cloud_cover_mid,cloud_cover_low,surface_pressure,"
+    "pressure_msl,weather_code,wind_gusts_10m,wind_direction_10m,wind_direction_100m,"
+    "wind_speed_100m,wind_speed_10m,soil_moisture_100_to_255cm,soil_moisture_28_to_100cm,"
+    "soil_moisture_7_to_28cm,soil_moisture_0_to_7cm,"
+    "soil_temperature_100_to_255cm,soil_temperature_28_to_100cm,"
+    "soil_temperature_0_to_7cm,soil_temperature_7_to_28cm"
+)
+
 # -----------------------------
 # 1. Load data
 # -----------------------------
-def load_data_from_api(filename="data_clean.csv"):
-    output_path = os.path.join(DATA_DIR, filename)
+def load_data_from_api(output_filename="newdata.csv", ref_filename="yesterday.csv", window_size=10000):
+    output_path = os.path.join(DATA_DIR, output_filename)
+    ref_path = os.path.join(DATA_DIR, ref_filename)
 
-    url = (
-        "https://archive-api.open-meteo.com/v1/archive?"
-        "latitude=13.6513&longitude=100.4964&"
-        "start_date=2014-01-01&end_date=2025-01-01&"
-        "hourly=temperature_2m,relative_humidity_2m,dew_point_2m,"
-        "apparent_temperature,rain,vapour_pressure_deficit,et0_fao_evapotranspiration,"
-        "cloud_cover_high,cloud_cover_mid,cloud_cover_low,surface_pressure,"
-        "pressure_msl,weather_code,wind_gusts_10m,wind_direction_10m,wind_direction_100m,"
-        "wind_speed_100m,wind_speed_10m,soil_moisture_100_to_255cm,soil_moisture_28_to_100cm,"
-        "soil_moisture_7_to_28cm,soil_moisture_0_to_7cm,"
-        "soil_temperature_100_to_255cm,soil_temperature_28_to_100cm,"
-        "soil_temperature_0_to_7cm,soil_temperature_7_to_28cm"
-    )
+    # ---- backup current.csv เป็น yesterday.csv ----
+    if os.path.exists(output_path):
+        os.replace(output_path, ref_path)  # current -> yesterday
+        print(f"[tasks] Backup: {output_filename} -> {ref_filename}")
 
-    response = requests.get(url)
+    # ---- load new data from API ----
+    response = requests.get(OPEN_METEO_FORECAST_API)
     if response.status_code != 200:
         raise ValueError(f"API request failed: {response.status_code}")
 
-    # data = response.json()
-    # df = pd.DataFrame(data["hourly"])
-    # df["time"] = pd.to_datetime(df["time"])
-    # df = df[(df["time"] >= "2014-01-01") & (df["time"] < "2025-01-01")]
-    # df.to_csv(output_path, index=False)
-    # print(f"[tasks] API data saved to {output_path}")
-
     data = response.json()
-    df = pd.DataFrame(data["hourly"])
-    df["time"] = pd.to_datetime(df["time"])
-    for col in df.columns:
+    df_new = pd.DataFrame(data["hourly"])
+    df_new["time"] = pd.to_datetime(df_new["time"])
+    for col in df_new.columns:
         if col != "time":
-            df[col] = pd.to_numeric(df[col], errors='coerce')
-    df = df.fillna(0)
-    df.to_csv(output_path, index=False)
-    print(f"[tasks] API data saved to {output_path}")
+            df_new[col] = pd.to_numeric(df_new[col], errors='coerce')
+    df_new = df_new.fillna(0)
+
+    # ---- combine with yesterday if exists ----
+    if os.path.exists(ref_path):
+        df_ref = pd.read_csv(ref_path)
+        df_combined = pd.concat([df_ref, df_new], ignore_index=True)
+        df_combined = df_combined.tail(window_size)  # keep latest rows only
+    else:
+        df_combined = df_new
+
+    # ---- save current ----
+    df_combined.to_csv(output_path, index=False)
+    print(f"[tasks] Current windowed data saved to {output_path}")
 
 # -----------------------------
 # 2. Preprocess
 # -----------------------------
-def preprocess_data(input_filename="data_clean.csv", output_filename="data_preprocessed.csv"):
+def preprocess_data(input_filename="newdata.csv", output_filename="data_preprocessed.csv"):
     input_path = os.path.join(DATA_DIR, input_filename)
     output_path = os.path.join(DATA_DIR, output_filename)
 
@@ -87,7 +110,7 @@ def preprocess_data(input_filename="data_clean.csv", output_filename="data_prepr
 def feature_selection(input_filename="data_preprocessed.csv",
                       features_filename="selected_features.json",
                       importance_filename="feature_importance.csv",
-                      output_filename="data_selected.csv",
+                      output_filename="current.csv",
                       corr_threshold=0.7,
                       importance_cutoff=0.90):
 
@@ -129,7 +152,7 @@ def feature_selection(input_filename="data_preprocessed.csv",
 # -----------------------------
 # 4. Train models
 # -----------------------------
-def train_models(input_filename="data_selected.csv",
+def train_models(input_filename="reference.csv",
                  experiment_name="rain_model_comparison",
                  model_dir=os.path.join(DATA_DIR, "models")):
 
@@ -208,75 +231,58 @@ def save_best_model(**context):
 # -----------------------------
 # 6. Generate Evidently report
 # -----------------------------
-def generate_evidently(input_filename="data_selected.csv",
+def generate_evidently(current_filename="current.csv",
+                       reference_filename="reference.csv",
                        registered_model_name="rain_prediction_model",
                        output_filename="evidently.html"):
 
-    input_path = os.path.join(DATA_DIR, input_filename)
+    current_path = os.path.join(DATA_DIR, current_filename)
+    reference_path = os.path.join(DATA_DIR, reference_filename)
     output_path = os.path.join(DATA_DIR, output_filename)
 
-    df = pd.read_csv(input_path)
-    X = df.drop("target", axis=1)
-    y = df["target"]
+    df_cur = pd.read_csv(current_path)
 
+    # ---- check first run ----
+    if not os.path.exists(reference_path):
+        print("[INFO] No reference dataset yet. First run.")
+        df_cur.to_csv(reference_path, index=False)
+        return {"first_run": True}
+
+    df_ref = pd.read_csv(reference_path)
+
+    # ---- load production model ----
     try:
         model_uri = f"models:/{registered_model_name}/Production"
         model = mlflow.pyfunc.load_model(model_uri)
     except Exception as e:
-        if any(msg in str(e) for msg in [
-            "Model not found",
-            "No versions of model",
-            "No version is in the specified stage",
-            "RESOURCE_DOES_NOT_EXIST"
-        ]):
-            print("[INFO] No Production model yet. First run.")
-            return {"first_run": True}
-        raise e
+        print("[INFO] No Production model yet. First run.", str(e))
+        df_cur.to_csv(reference_path, index=False)
+        return {"first_run": True}
 
-        # if "Model not found" in str(e) or "No versions of model" in str(e) or "No version is in the specified stage" in str(e):
-        #     print("[INFO] No Production model yet. First run.")
-        #     return {"first_run": True}
-        # raise e
+    # ---- add predictions ----
+    df_ref["prediction"] = model.predict(df_ref.drop("target", axis=1))
+    df_cur["prediction"] = model.predict(df_cur.drop("target", axis=1))
 
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
-    ref_df = X_train.copy()
-    cur_df = X_test.copy()
-    ref_df["target"] = y_train.values
-    cur_df["target"] = y_test.values
-    ref_df["prediction"] = model.predict(X_train)
-    cur_df["prediction"] = model.predict(X_test)
-
+    # ---- run Evidently ----
     column_mapping = ColumnMapping(target="target", prediction="prediction")
     report = Report(metrics=[DataDriftPreset(), TargetDriftPreset(), ClassificationPreset()])
-    report.run(reference_data=ref_df, current_data=cur_df, column_mapping=column_mapping)
+    report.run(reference_data=df_ref, current_data=df_cur, column_mapping=column_mapping)
     report.save_html(output_path)
     print(f"Evidently report saved to {output_path}")
 
+    # ---- extract metrics ----
     result = report.as_dict()
-    print("result",result)
-    print("Keys in report dict:", result.keys())
-
     metrics = result["metrics"]
-    print(f"Found {len(metrics)} metrics:")
-    for m in metrics:
-        print("Metric name:", m.get("metric"))
-        print("Result:", m.get("result"))
-        print("---")
 
     def get_metric_result(metrics, metric_name):
         for m in metrics:
             if m.get("metric") == metric_name:
                 return m.get("result")
-        print(f"[WARNING] Metric '{metric_name}' not found.")
         return None
 
     data_drift_result   = get_metric_result(metrics, "DatasetDriftMetric")
     target_drift_result = get_metric_result(metrics, "ColumnDriftMetric")
     cls_result          = get_metric_result(metrics, "ClassificationQualityMetric")
-
-    # data_drift_result = next(m for m in metrics if m["metric"] == "DataDriftPreset")["result"]
-    # target_drift_result = next(m for m in metrics if m["metric"] == "TargetDriftPreset")["result"]
-    # cls_result         = next(m for m in metrics if m["metric"] == "ClassificationPreset")["result"]
 
     dataset_drift   = data_drift_result["dataset_drift"]
     share_drifted   = data_drift_result["share_of_drifted_columns"]
@@ -285,13 +291,11 @@ def generate_evidently(input_filename="data_selected.csv",
     cur_acc         = cls_result["current"]["accuracy"]
     accuracy_drop   = ref_acc - cur_acc
 
-    print(f"Dataset drift: {dataset_drift}")
-    print(f"Share of drifted columns: {share_drifted:.2%}")
+    print(f"Dataset drift: {dataset_drift}, share drifted: {share_drifted:.2%}")
     print(f"Target drift: {target_drift}")
-    print(f"Reference accuracy: {ref_acc:.4f}")
-    print(f"Current accuracy: {cur_acc:.4f}")
-    print(f"Accuracy drop: {accuracy_drop:.4f}")
+    print(f"Reference acc: {ref_acc:.4f}, Current acc: {cur_acc:.4f}, Drop: {accuracy_drop:.4f}")
 
+    # ---- log metrics to MLflow ----
     with mlflow.start_run(run_name=f"evidently_{datetime.now().date()}"):
         mlflow.log_artifact(output_path, artifact_path="evidently_reports")
         mlflow.log_metric("share_drifted_columns", share_drifted)
@@ -308,15 +312,24 @@ def generate_evidently(input_filename="data_selected.csv",
         "accuracy_drop": accuracy_drop
     }
 
+
 # -----------------------------
 # 7. Decide retrain
 # -----------------------------
-def decide_retrain(**context):
+def decide_retrain(current_filename="current.csv",
+                   reference_filename="reference.csv",
+                   **context):
     ti = context["ti"]
     ev_result = ti.xcom_pull(task_ids="generate_evidently")
 
     if ev_result.get("first_run", False):
         print("First run detected, proceeding to train model.")
+        # move current -> reference
+        current_path = os.path.join(DATA_DIR, current_filename)
+        reference_path = os.path.join(DATA_DIR, reference_filename)
+        if os.path.exists(current_path):
+            os.replace(current_path, reference_path)
+            print(f"[tasks] First run: {current_filename} -> {reference_filename}")
         return True
 
     dataset_drift = ev_result["dataset_drift"]
@@ -349,4 +362,12 @@ def decide_retrain(**context):
         should_retrain = True
 
     print(f"should_retrain_from_metrics={should_retrain}")
+
+    if should_retrain:
+        current_path = os.path.join(DATA_DIR, current_filename)
+        reference_path = os.path.join(DATA_DIR, reference_filename)
+        if os.path.exists(current_path):
+            os.replace(current_path, reference_path)
+            print(f"[tasks] Retrain triggered: {current_filename} -> {reference_filename}")
+
     return should_retrain

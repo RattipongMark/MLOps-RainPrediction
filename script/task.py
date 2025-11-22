@@ -124,6 +124,22 @@ def feature_selection(input_filename="data_preprocessed.csv",
     X = df.drop("target", axis=1)
     y = df["target"]
 
+    # -------------------------
+    # Sanitize X
+    # -------------------------
+    X = X.apply(pd.to_numeric, errors='coerce')  # convert all to numeric
+    X = X.fillna(0)  # fill missing values
+    if X.isna().any().any():
+        raise ValueError("X still contains NaN after fillna")
+
+    # -------------------------
+    # Sanitize y
+    # -------------------------
+    y = y.astype(int)  # ensure 0/1
+    unique_classes = np.unique(y)
+    if len(unique_classes) < 2:
+        raise ValueError(f"y has less than 2 classes: {unique_classes}, cannot train XGBClassifier")
+
     model = XGBClassifier(n_estimators=200, learning_rate=0.05, max_depth=6,
                           subsample=0.8, colsample_bytree=1.0,
                           random_state=42, eval_metric="logloss")
@@ -137,7 +153,7 @@ def feature_selection(input_filename="data_preprocessed.csv",
     to_drop_corr = [col for col in upper_triangle.columns if any(upper_triangle[col] > corr_threshold)]
     X_uncorr = X.drop(columns=to_drop_corr)
 
-    importance_df_uncorr = importance_df[importance_df["Feature"].isin(X_uncorr.columns)]
+    importance_df_uncorr = importance_df[importance_df["Feature"].isin(X_uncorr.columns)].copy()
     importance_df_uncorr["Cumulative"] = importance_df_uncorr["Importance"].cumsum() / importance_df_uncorr["Importance"].sum()
     cutoff_index = np.argmax(importance_df_uncorr["Cumulative"] >= importance_cutoff) + 1
     final_selected_features = importance_df_uncorr["Feature"].iloc[:cutoff_index].tolist()
@@ -148,6 +164,7 @@ def feature_selection(input_filename="data_preprocessed.csv",
     df_selected = df[final_selected_features + ["target"]]
     df_selected.to_csv(output_path, index=False)
     print("[tasks] FEATURE SELECTION COMPLETE")
+
 
 # -----------------------------
 # 4. Train models

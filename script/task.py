@@ -120,8 +120,6 @@ def preprocess_data(window_size=10000, input_filename=TODAY_FILENAME, ref_filena
     # ---- load yesterday / reference if exists ----
     if os.path.exists(ref_path):
         df_ref = pd.read_csv(ref_path)
-        df_ref["target"] = (df_ref["rain"] > 0.1).astype(int)
-        df_ref = df_ref.drop(["rain", "weather_code"], axis=1)
         # ---- combine and keep latest window_size rows ----
         df_combined = pd.concat([df_ref, df_today], ignore_index=True).tail(window_size)
         print(f"[tasks] Combined data from {ref_filename} and {input_filename}, total rows: {len(df_combined)}")

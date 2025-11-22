@@ -320,7 +320,7 @@ def feature_selection(input_filename="data_preprocessed.csv",
 # 4. Train models
 # -----------------------------
 def train_models(input_filename="reference.csv",
-                 experiment_name="rain_model_comparison",
+                 experiment_name="predict_rain_model_comparison",
                  model_dir=os.path.join(DATA_DIR, "models")):
 
     input_path = os.path.join(DATA_DIR, input_filename)
@@ -330,13 +330,7 @@ def train_models(input_filename="reference.csv",
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
     os.makedirs(model_dir, exist_ok=True)
 
-    client = MlflowClient()
-    experiment = client.get_experiment_by_name("rain_model_comparison")
-
-    if experiment is None or experiment.lifecycle_stage == "deleted":
-        client.create_experiment("rain_model_comparison")
-
-    mlflow.set_experiment("rain_model_comparison")
+    mlflow.set_experiment(experiment_name)
 
     scale_pos_weight = (y_train==0).sum()/(y_train==1).sum()
 

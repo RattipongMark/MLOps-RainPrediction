@@ -55,14 +55,12 @@ OPEN_METEO_INTEVAL_API = (
     "soil_temperature_0_to_7cm,soil_temperature_7_to_28cm"
 )
 
+TODAY = date.today().strftime("%Y%m%d")
+TODAY_FILENAME = f"newdata_{TODAY}.csv"
 # -----------------------------
 # 1. Load data
 # -----------------------------
-def load_data_from_api(output_filename=None, ref_filename="yesterday.csv", window_size=10000):
-    today_str = date.today().strftime("%Y%m%d")
-    if output_filename is None:
-        output_filename = f"newdata_{today_str}.csv"
-
+def load_data_from_api(output_filename=TODAY_FILENAME, ref_filename="yesterday.csv", window_size=10000):
     output_path = os.path.join(DATA_DIR, output_filename)
     ref_path = os.path.join(DATA_DIR, ref_filename)
     reference_path = os.path.join(DATA_DIR, "reference.csv")
@@ -113,7 +111,7 @@ def load_data_from_api(output_filename=None, ref_filename="yesterday.csv", windo
 # -----------------------------
 # 2. Preprocess
 # -----------------------------
-def preprocess_data(input_filename="newdata.csv", output_filename="data_preprocessed.csv"):
+def preprocess_data(input_filename=TODAY_FILENAME, output_filename="data_preprocessed.csv"):
     input_path = os.path.join(DATA_DIR, input_filename)
     output_path = os.path.join(DATA_DIR, output_filename)
 

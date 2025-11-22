@@ -349,8 +349,8 @@ def train_models(input_filename="reference.csv",
             os.rename(input_path, os.path.join(DATA_DIR, "reference_data.csv"))
             mlflow.log_artifact(os.path.join(DATA_DIR, "reference_data.csv"), artifact_path="data")
 
-            artifact_uri = mlflow.get_artifact_uri("data/reference_data.csv")
-            dataset = mlflow.data.from_pandas(df, name="training_data", source=artifact_uri)
+            # artifact_uri = mlflow.get_artifact_uri("data/reference_data.csv")
+            dataset = mlflow.data.from_pandas(df, name="training_data")
             mlflow.log_input(dataset)
 
             model.fit(X_train, y_train)

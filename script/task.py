@@ -330,7 +330,13 @@ def train_models(input_filename="reference.csv",
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
     os.makedirs(model_dir, exist_ok=True)
 
-    mlflow.set_experiment(experiment_name)
+    client = MlflowClient()
+    experiment = client.get_experiment_by_name("rain_model_comparison")
+
+    if experiment is None or experiment.lifecycle_stage == "deleted":
+        client.create_experiment("rain_model_comparison")
+
+    mlflow.set_experiment("rain_model_comparison")
 
     scale_pos_weight = (y_train==0).sum()/(y_train==1).sum()
 
@@ -425,6 +431,7 @@ def generate_evidently(current_filename="current.csv",
         print("[INFO] No Production model yet. First run.", str(e))
         df_cur.to_csv(reference_path, index=False)
         return {"first_run": True}
+    
 
     # ---- add predictions ----
     features_path = os.path.join(DATA_DIR, "selected_features.json")

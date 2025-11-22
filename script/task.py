@@ -22,7 +22,7 @@ from datetime import date
 # -----------------------------
 def get_data_dir():
     """Return absolute path to the data folder and create it if missing"""
-    base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../data"))
+    base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../data"))
     os.makedirs(base_dir, exist_ok=True)
     return base_dir
 

@@ -386,6 +386,8 @@ def upload_dataset_to_dagshub():
     repo = "RattipongMark/MLOps-RainPrediction"
     ref_data_path = os.path.join(DATA_DIR, "reference_data.csv")
     dags_hub_dvc_path = "data/reference_data.csv"
+    print("cwd : ", os.getcwd())
+    os.chdir(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
     dagshub.upload_files(repo, ref_data_path, remote_path=dags_hub_dvc_path, versioning="dvc")
 
 

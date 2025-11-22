@@ -501,13 +501,6 @@ def decide_retrain(current_filename="current.csv",
 
     if ev_result.get("first_run", False):
         print("First run detected, proceeding to train model.")
-        # move current -> reference
-        current_path = os.path.join(DATA_DIR, current_filename)
-        reference_path = os.path.join(DATA_DIR, reference_filename)
-        if os.path.exists(current_path):
-            os.replace(current_path, reference_path)
-            print(f"[tasks] First run: {current_filename} -> {reference_filename}")
-        return True
 
     dataset_drift = ev_result["dataset_drift"]
     share_drifted = ev_result["share_drifted"]

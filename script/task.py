@@ -151,50 +151,47 @@ def preprocess_data(
     df_today["target"] = (df_today["rain"] > 0.1).astype(int)
     df_today = df_today.drop(["rain", "weather_code"], axis=1)  # keep time for concat
 
-    # ---------------- Load yesterday reference & concat ----------------
+    # ---------------- Apply Mapping / Column Merge to today's data ----------------
+    df_today_mapped = {}
+    grouped = {}
+    for col in df_today.columns:
+        if col in api_to_train_map:
+            new_col = api_to_train_map[col]
+            grouped.setdefault(new_col, []).append(df_today[col])
+        else:
+            grouped.setdefault(col, []).append(df_today[col])
+
+    for new_col, series_list in grouped.items():
+        if len(series_list) == 1:
+            df_today_mapped[new_col] = series_list[0]
+        else:
+            df_today_mapped[new_col] = pd.concat(series_list, axis=1).mean(axis=1)
+
+    df_today_final = pd.DataFrame(df_today_mapped)
+
+    # drop time if exists
+    if "time" in df_today_final.columns:
+        df_today_final = df_today_final.drop(columns=["time"])
+
+    # ---------------- Load reference ----------------
     if os.path.exists(ref_path):
         df_ref = pd.read_csv(ref_path)
 
         # concat & keep only last N rows
-        df_combined = pd.concat([df_ref, df_today], ignore_index=True).tail(window_size)
+        df_combined = pd.concat([df_ref, df_today_final], ignore_index=True).tail(window_size)
 
         print(f"[tasks] Combined data from {ref_filename} and {input_filename}, total rows: {len(df_combined)}")
-        print(f"dataframe columns: {df_combined.columns.tolist()}")
     else:
-        df_combined = df_today
+        df_combined = df_today_final
 
-    # ---------------- Apply Preprocess (Mapping + Column Merge) ----------------
-    df_processed = {}
-    grouped = {}
-
-    for col in df_combined.columns:
-        if col in api_to_train_map:
-            new_col = api_to_train_map[col]
-            grouped.setdefault(new_col, []).append(df_combined[col])
-        else:
-            grouped.setdefault(col, []).append(df_combined[col])
-
-    # merge by mean
-    for new_col, series_list in grouped.items():
-        if len(series_list) == 1:
-            df_processed[new_col] = series_list[0]
-        else:
-            df_processed[new_col] = pd.concat(series_list, axis=1).mean(axis=1)
-
-    df_final = pd.DataFrame(df_processed)
-
-    # drop time if exists
-    if "time" in df_final.columns:
-        df_final = df_final.drop(columns=["time"])
-
-    print(f"[tasks] Preprocessing complete, final columns: {df_final.columns.tolist()}")
-    print(df_final.head())
+    print(f"[tasks] Preprocessing complete, final columns: {df_combined.columns.tolist()}")
+    print(df_combined.head())
 
     # ---------------- Save ----------------
-    df_final.to_csv(output_path, index=False)
+    df_combined.to_csv(output_path, index=False)
     print(f"[tasks] Preprocessed & combined data saved to {output_path}")
 
-    return df_final
+    return df_combined
 
 
 

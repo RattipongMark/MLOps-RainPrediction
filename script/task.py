@@ -281,6 +281,33 @@ def feature_selection(input_filename="data_preprocessed.csv",
     df_raw_ref_selected.to_csv(reference_path, index=False)
     print(df_raw_ref_selected.head(10))
 
+    def validate_features(current_df, reference_df):
+        """
+        Validate that current and reference datasets have the same columns
+        and no missing values.
+        
+        Args:
+            current_df (pd.DataFrame): DataFrame for current dataset
+            reference_df (pd.DataFrame): DataFrame for reference dataset
+        
+        Raises:
+            ValueError: If columns mismatch or there are NaN values
+        """
+        # 1. Check columns
+        if list(current_df.columns) != list(reference_df.columns):
+            raise ValueError(
+                f"Column mismatch:\nCurrent: {current_df.columns.tolist()}\nReference: {reference_df.columns.tolist()}"
+            )
+        
+        # 2. Check for NaN
+        if current_df.isna().any().any():
+            raise ValueError("Current dataset contains NaN values")
+        if reference_df.isna().any().any():
+            raise ValueError("Reference dataset contains NaN values")
+        
+        print("[validate_features] Columns match and no missing values found ✅")
+    validate_features(df_selected, df_raw_ref_selected)
+
     print("[tasks] FEATURE SELECTION COMPLETE")
 
 

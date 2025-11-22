@@ -174,29 +174,45 @@ def feature_selection(input_filename="data_preprocessed.csv",
     if len(unique_classes) < 2:
         raise ValueError(f"y has less than 2 classes: {unique_classes}, cannot train XGBClassifier")
 
-    model = XGBClassifier(n_estimators=200, learning_rate=0.05, max_depth=6,
-                          subsample=0.8, colsample_bytree=1.0,
-                          random_state=42, eval_metric="logloss")
+    # Train XGBoost
+    model = XGBClassifier(
+        n_estimators=200,
+        learning_rate=0.05,
+        max_depth=6,
+        subsample=0.8,
+        colsample_bytree=1.0,
+        random_state=42,
+        eval_metric="logloss"
+    )
     model.fit(X, y)
 
-    importance_df = pd.DataFrame({"Feature": X.columns, "Importance": model.feature_importances_})
+    # Save raw feature importance
+    importance_df = pd.DataFrame({
+        "Feature": X.columns,
+        "Importance": model.feature_importances_
+    }).sort_values(by="Importance", ascending=False)
     importance_df.to_csv(importance_path, index=False)
 
-    corr = X.corr().abs()
-    upper_triangle = corr.where(np.triu(np.ones(corr.shape), k=1).astype(bool))
-    to_drop_corr = [col for col in upper_triangle.columns if any(upper_triangle[col] > corr_threshold)]
-    X_uncorr = X.drop(columns=to_drop_corr)
+    # Importance-guided correlation pruning
+    selected_features = []
+    for feature in importance_df["Feature"]:
+        if all(abs(X[feature].corr(X[sel])) <= corr_threshold for sel in selected_features):
+            selected_features.append(feature)
 
-    importance_df_uncorr = importance_df[importance_df["Feature"].isin(X_uncorr.columns)].copy()
-    importance_df_uncorr["Cumulative"] = importance_df_uncorr["Importance"].cumsum() / importance_df_uncorr["Importance"].sum()
-    cutoff_index = np.argmax(importance_df_uncorr["Cumulative"] >= importance_cutoff) + 1
-    final_selected_features = importance_df_uncorr["Feature"].iloc[:cutoff_index].tolist()
+    # Keep only features that cover the cumulative importance threshold
+    importance_selected = importance_df[importance_df["Feature"].isin(selected_features)].copy()
+    importance_selected["Cumulative"] = importance_selected["Importance"].cumsum() / importance_selected["Importance"].sum()
+    cutoff_index = np.argmax(importance_selected["Cumulative"] >= importance_cutoff) + 1
+    final_selected_features = importance_selected["Feature"].iloc[:cutoff_index].tolist()
 
+    # Save final selected features
     with open(features_path, "w") as f:
         json.dump(final_selected_features, f)
 
+    # Save reduced dataset
     df_selected = df[final_selected_features + ["target"]]
     df_selected.to_csv(output_path, index=False)
+
     print("[tasks] FEATURE SELECTION COMPLETE")
 
 

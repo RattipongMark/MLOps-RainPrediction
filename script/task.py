@@ -320,7 +320,7 @@ def feature_selection(input_filename="data_preprocessed.csv",
 # 4. Train models
 # -----------------------------
 def train_models(input_filename="reference.csv",
-                 experiment_name="predict_rain_model_comparison",
+                 experiment_name="rain_predict_model_comparison",
                  model_dir=os.path.join(DATA_DIR, "models")):
 
     input_path = os.path.join(DATA_DIR, input_filename)
@@ -347,10 +347,11 @@ def train_models(input_filename="reference.csv",
     results = []
     os.rename(input_path, os.path.join(DATA_DIR, "reference_data.csv"))
     for name, model in models.items():
+        with mlflow.start_run(run_name=name):
             mlflow.log_artifact(os.path.join(DATA_DIR, "reference_data.csv"), artifact_path="data")
 
-            # artifact_uri = mlflow.get_artifact_uri("data/reference_data.csv")
-            dataset = mlflow.data.from_pandas(df, name="training_data")
+            artifact_uri = mlflow.get_artifact_uri("data/reference_data.csv")
+            dataset = mlflow.data.from_pandas(df, name="training_data", source=artifact_uri)
             mlflow.log_input(dataset)
 
             model.fit(X_train, y_train)

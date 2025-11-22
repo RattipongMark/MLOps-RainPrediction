@@ -107,33 +107,79 @@ def load_data_from_api(output_filename=TODAY_FILENAME, ref_filename="yesterday.c
 # -----------------------------
 # 2. Preprocess and combine
 # -----------------------------
-def preprocess_data(window_size=10000, input_filename=TODAY_FILENAME, ref_filename="yesterday.csv", output_filename="data_preprocessed.csv"):
+def preprocess_data(
+    window_size=10000, 
+    input_filename=TODAY_FILENAME, 
+    ref_filename="yesterday.csv", 
+    output_filename="data_preprocessed.csv"):
+
+    # ---------------- Paths ----------------
     today_path = os.path.join(DATA_DIR, input_filename)
     ref_path = os.path.join(DATA_DIR, ref_filename)
     output_path = os.path.join(DATA_DIR, output_filename)
 
-    # ---- load today's data ----
+    # ---------------- Mapping API → Train ----------------
+    api_to_train_map = {
+        "Soil Temperature (0 cm)": "Soil Temperature (0-7 cm)",
+        "Soil Temperature (6 cm)": "Soil Temperature (0-7 cm)",
+        "Soil Temperature (18 cm)": "Soil Temperature (7-28 cm)",
+        "Soil Temperature (54 cm)": "Soil Temperature (28-100 cm)",
+        "Soil Moisture (0-1 cm)": "Soil Moisture (0-7 cm)",
+        "Soil Moisture (1-3 cm)": "Soil Moisture (0-7 cm)",
+        "Soil Moisture (3-9 cm)": "Soil Moisture (0-7 cm)",
+        "Soil Moisture (9-27 cm)": "Soil Moisture (7-28 cm)",
+        "Soil Moisture (27-81 cm)": "Soil Moisture (28-100 cm)"
+    }
+
+    # ---------------- Load today's data ----------------
     df_today = pd.read_csv(today_path)
+
+    # Target
     df_today["target"] = (df_today["rain"] > 0.1).astype(int)
     df_today = df_today.drop(["rain", "weather_code"], axis=1)  # keep time for concat
 
-    # ---- load yesterday / reference if exists ----
+    # ---------------- Load yesterday reference & concat ----------------
     if os.path.exists(ref_path):
         df_ref = pd.read_csv(ref_path)
-        # ---- combine and keep latest window_size rows ----
+
+        # concat & keep only last N rows
         df_combined = pd.concat([df_ref, df_today], ignore_index=True).tail(window_size)
+
         print(f"[tasks] Combined data from {ref_filename} and {input_filename}, total rows: {len(df_combined)}")
         print(f"dataframe columns: {df_combined.columns.tolist()}")
-        print(f"dataframe sample:\n{df_combined}")
     else:
         df_combined = df_today
 
-    # ---- drop time if not needed ----
-    if "time" in df_combined.columns:
-        df_combined = df_combined.drop(["time"], axis=1)
+    # ---------------- Apply Preprocess (Mapping + Column Merge) ----------------
+    df_processed = {}
+    grouped = {}
 
-    df_combined.to_csv(output_path, index=False)
+    for col in df_combined.columns:
+        if col in api_to_train_map:
+            new_col = api_to_train_map[col]
+            grouped.setdefault(new_col, []).append(df_combined[col])
+        else:
+            grouped.setdefault(col, []).append(df_combined[col])
+
+    # merge by mean
+    for new_col, series_list in grouped.items():
+        if len(series_list) == 1:
+            df_processed[new_col] = series_list[0]
+        else:
+            df_processed[new_col] = pd.concat(series_list, axis=1).mean(axis=1)
+
+    df_final = pd.DataFrame(df_processed)
+
+    # drop time if exists
+    if "time" in df_final.columns:
+        df_final = df_final.drop(columns=["time"])
+
+    # ---------------- Save ----------------
+    df_final.to_csv(output_path, index=False)
     print(f"[tasks] Preprocessed & combined data saved to {output_path}")
+
+    return df_final
+
 
 
 # -----------------------------

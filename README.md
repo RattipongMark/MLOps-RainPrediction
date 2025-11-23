@@ -55,9 +55,3 @@ This pipeline is triggered when the model needs to be updated:
 
 The model that is approved and designated as the **Production Model** in the **MLflow Model Registry** is loaded and utilized by the **Streamlit** application, allowing users to access real-time predictions.
 
------
-    ```bash
-    streamlit run app.py
-    ```
-
-**(Please refer to the internal documentation within the repository for specific configuration details.)**

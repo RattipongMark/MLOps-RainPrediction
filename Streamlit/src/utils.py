@@ -20,12 +20,26 @@ OPEN_METEO_API = (
     "&timezone=Asia/Bangkok"
 )
 
+OPEN_METEO_FORECAST_API = (
+    "https://api.open-meteo.com/v1/forecast?"
+    "latitude=13.6513&longitude=100.4964&hourly="
+    "temperature_2m,relative_humidity_2m,dew_point_2m,"
+    "apparent_temperature,rain,vapour_pressure_deficit,et0_fao_evapotranspiration,"
+    "cloud_cover_high,cloud_cover_mid,cloud_cover_low,surface_pressure,"
+    "pressure_msl,weather_code,wind_gusts_10m,wind_direction_10m,wind_direction_120m,"
+    "wind_speed_120m,wind_speed_10m,soil_moisture_27_to_81cm,"
+    "soil_moisture_9_to_27cm,"
+    "soil_moisture_3_to_9cm,soil_moisture_1_to_3cm,soil_moisture_0_to_1cm,"
+    "soil_temperature_18cm,soil_temperature_0cm,soil_temperature_6cm,"
+    "soil_temperature_54cm"
+)
+
 # -----------------------------------------
 # DAILY (ใช้ใน Dashboard)
 # -----------------------------------------
 def fetch_open_meteo():
     """Return daily summary 7 days"""
-    res = requests.get(OPEN_METEO_API).json()
+    res = requests.get(OPEN_METEO_FORECAST_API).json()
 
     hourly = res["hourly"]
     df = pd.DataFrame(hourly)
@@ -38,10 +52,29 @@ def fetch_open_meteo():
         "temperature_2m": "mean",
         "relative_humidity_2m": "mean",
         "dew_point_2m": "mean",
-        "cloud_cover_low": "mean",
-        "precipitation_probability": "mean",
+        "apparent_temperature": "mean",
         "rain": "sum",
-        "wind_speed_10m": "mean"
+        "vapour_pressure_deficit": "mean",
+        "et0_fao_evapotranspiration": "mean",
+        "cloud_cover_high": "mean",
+        "cloud_cover_mid": "mean",
+        "cloud_cover_low": "mean",
+        "surface_pressure": "mean",
+        "pressure_msl": "mean",
+        "wind_gusts_10m": "mean",
+        "wind_direction_10m": "mean",
+        "wind_direction_120m": "mean",
+        "wind_speed_120m": "mean",
+        "wind_speed_10m": "mean",
+        "soil_moisture_27_to_81cm": "mean",
+        "soil_moisture_9_to_27cm": "mean",
+        "soil_moisture_3_to_9cm": "mean",
+        "soil_moisture_1_to_3cm": "mean",
+        "soil_moisture_0_to_1cm": "mean",
+        "soil_temperature_18cm": "mean",
+        "soil_temperature_0cm": "mean",
+        "soil_temperature_6cm": "mean",
+        "soil_temperature_54cm": "mean"
     }).reset_index()
 
     return daily.head(7)  # 7 days
@@ -52,7 +85,7 @@ def fetch_open_meteo():
 # -----------------------------------------
 def fetch_open_meteo_hourly():
     """Return hourly data (168 rows = 7 days × 24 hours)."""
-    res = requests.get(OPEN_METEO_API).json()
+    res = requests.get(OPEN_METEO_FORECAST_API).json()
 
     hourly = res["hourly"]
     df = pd.DataFrame(hourly)

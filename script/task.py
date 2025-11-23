@@ -395,7 +395,8 @@ def train_models(input_filename="reference.csv",
                 "model_name": name,
                 "acc": float(test_acc),
                 "artifact_path": artifact_path,
-                "run_id": mlflow.active_run().info.run_id
+                "run_id": mlflow.active_run().info.run_id,
+                "test_pr_auc": float(pr_auc)
             })
 
             print(f"[tasks] {name} trained & logged.")

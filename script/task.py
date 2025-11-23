@@ -327,16 +327,14 @@ def train_models(input_filename="reference.csv",
             # =======================================================
             # Classification report logging (train + test)
             # =======================================================
-            train_report = classification_report(y_train, y_train_pred)
-            test_report = classification_report(y_test, y_test_pred)
-
-            with open("train_classification_report.txt", "w") as f:
-                f.write(train_report)
-            mlflow.log_artifact("train_classification_report.txt", artifact_path="reports")
-
-            with open("test_classification_report.txt", "w") as f:
-                f.write(test_report)
-            mlflow.log_artifact("test_classification_report.txt", artifact_path="reports")
+            train_report_file = os.path.join(DATA_DIR, "train_classification_report.txt")
+            test_report_file = os.path.join(DATA_DIR, "test_classification_report.txt")
+            with open(train_report_file, "w") as f:
+                f.write(classification_report(y_train, y_train_pred))
+            with open(test_report_file, "w") as f:
+                f.write(classification_report(y_test, y_test_pred))
+            mlflow.log_artifact(train_report_file, artifact_path="reports")
+            mlflow.log_artifact(test_report_file, artifact_path="reports")
 
             # =======================================================
             # Confusion matrix plots (train + test)
@@ -350,7 +348,8 @@ def train_models(input_filename="reference.csv",
                 filename = f"confusion_matrix_{label}.png"
                 plt.savefig(filename)
                 plt.close()
-                mlflow.log_artifact(filename, artifact_path="plots")
+                mlflow.log_artifact(os.path.join(DATA_DIR, filename), artifact_path="plots")
+                # mlflow.log_artifact(filename, artifact_path="plots")
 
             log_conf_matrix(y_train, y_train_pred, "train")
             log_conf_matrix(y_test, y_test_pred, "test")
@@ -372,7 +371,8 @@ def train_models(input_filename="reference.csv",
                 filename = f"roc_curve_{label}.png"
                 plt.savefig(filename)
                 plt.close()
-                mlflow.log_artifact(filename, artifact_path="plots")
+                mlflow.log_artifact(os.path.join(DATA_DIR, filename), artifact_path="plots")
+                # mlflow.log_artifact(filename, artifact_path="plots")
 
             log_roc_curve(y_train, y_train_prob, "train")
             log_roc_curve(y_test, y_test_prob, "test")

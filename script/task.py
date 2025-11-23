@@ -8,7 +8,7 @@ import lightgbm as lgb
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import (
-    accuracy_score, roc_auc_score, roc_curve, auc,
+    accuracy_score, roc_auc_score, roc_curve, auc, precision_recall_curve,
     confusion_matrix, ConfusionMatrixDisplay,  classification_report
 )
 import matplotlib.pyplot as plt
@@ -315,11 +315,14 @@ def train_models(input_filename="reference.csv",
             train_acc = accuracy_score(y_train, y_train_pred)
             test_auc = roc_auc_score(y_test, y_test_prob)
             train_auc = roc_auc_score(y_train, y_train_prob)
+            precision, recall, _ = precision_recall_curve(y_test, y_test_prob)
+            pr_auc = auc(recall, precision)
 
             mlflow.log_metric("test_accuracy", test_acc)
             mlflow.log_metric("train_accuracy", train_acc)
             mlflow.log_metric("test_auc", test_auc)
             mlflow.log_metric("train_auc", train_auc)
+            mlflow.log_metric("test_pr_auc", pr_auc)
 
             # Params
             mlflow.log_params(model.get_params())

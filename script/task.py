@@ -495,7 +495,7 @@ def generate_evidently(current_filename="current.csv",
 
 
     # ---- add predictions ----
-    features_path = os.path.join(DATA_DIR, "features.json")
+    features_path = os.path.join(DATA_DIR, "feature.json")
     with open(features_path) as f:
         selected_features = json.load(f)
 

@@ -18,8 +18,6 @@ from datetime import datetime
 from datetime import date
 from airflow.models import Variable
 
-import subprocess
-
 # -----------------------------
 # Global: Data directory
 # -----------------------------
@@ -203,120 +201,55 @@ def preprocess_data(
 # -----------------------------
 # 3. Feature selection
 # -----------------------------
-def feature_selection(input_filename="data_preprocessed.csv",
-                      features_filename="selected_features.json",
-                      importance_filename="feature_importance.csv",
-                      output_filename="current.csv",
-                      raw_reference_filename="raw_reference.csv",
-                      reference_output_filename="reference.csv",
-                      corr_threshold=0.7,
-                      importance_cutoff=0.90):
+def feature_selection(
+        input_filename="data_preprocessed.csv",
+        features_filename="feature.json",
+        output_filename="current.csv",
+        raw_reference_filename="raw_reference.csv",
+        reference_output_filename="reference.csv"
+    ):
 
     input_path = os.path.join(DATA_DIR, input_filename)
     features_path = os.path.join(DATA_DIR, features_filename)
-    importance_path = os.path.join(DATA_DIR, importance_filename)
     output_path = os.path.join(DATA_DIR, output_filename)
     raw_reference_path = os.path.join(DATA_DIR, raw_reference_filename)
     reference_path = os.path.join(DATA_DIR, reference_output_filename)
 
-    print("[tasks] FEATURE SELECTION START")
+    print("[tasks] FEATURE SELECTION (STATIC MODE) START")
+
+    # 1) Load feature list
+    with open(features_path, "r") as f:
+        selected_features = json.load(f)
+
+    print(f"[tasks] Loaded features from {features_filename}: {selected_features}")
+
+    # 2) Load current preprocessed dataset
     df = pd.read_csv(input_path)
-    X = df.drop("target", axis=1)
-    y = df["target"]
 
-    # -------------------------
-    # Sanitize X
-    # -------------------------
-    X = X.apply(pd.to_numeric, errors='coerce')  # convert all to numeric
-    X = X.fillna(0)  # fill missing values
-    if X.isna().any().any():
-        raise ValueError("X still contains NaN after fillna")
+    # 3) Ensure all selected features exist — if missing, create them = 0
+    for col in selected_features:
+        if col not in df.columns:
+            print(f"[WARN] Column '{col}' not found in current dataset — creating with zeros")
+            df[col] = 0
 
-    # -------------------------
-    # Sanitize y
-    # -------------------------
-    y = y.astype(int)  # ensure 0/1
-    unique_classes = np.unique(y)
-    if len(unique_classes) < 2:
-        raise ValueError(f"y has less than 2 classes: {unique_classes}, cannot train XGBClassifier")
-
-    # Train XGBoost
-    model = XGBClassifier(
-        n_estimators=200,
-        learning_rate=0.05,
-        max_depth=6,
-        subsample=0.8,
-        colsample_bytree=1.0,
-        random_state=42,
-        eval_metric="logloss"
-    )
-    model.fit(X, y)
-
-    # Save raw feature importance
-    importance_df = pd.DataFrame({
-        "Feature": X.columns,
-        "Importance": model.feature_importances_
-    }).sort_values(by="Importance", ascending=False)
-    importance_df.to_csv(importance_path, index=False)
-
-    # Importance-guided correlation pruning
-    selected_features = []
-    for feature in importance_df["Feature"]:
-        if all(abs(X[feature].corr(X[sel])) <= corr_threshold for sel in selected_features):
-            selected_features.append(feature)
-
-    # Keep only features that cover the cumulative importance threshold
-    importance_selected = importance_df[importance_df["Feature"].isin(selected_features)].copy()
-    importance_selected["Cumulative"] = importance_selected["Importance"].cumsum() / importance_selected["Importance"].sum()
-    cutoff_index = np.argmax(importance_selected["Cumulative"] >= importance_cutoff) + 1
-    final_selected_features = importance_selected["Feature"].iloc[:cutoff_index].tolist()
-
-    # Save final selected features
-    with open(features_path, "w") as f:
-        json.dump(final_selected_features, f)
-
-    # Save reduced dataset
-    df_selected = df[final_selected_features + ["target"]]
+    # 4) Reorder columns to the correct order
+    df_selected = df[selected_features + ["target"]]
     df_selected.to_csv(output_path, index=False)
-    print(f"[tasks] Selected features is {final_selected_features}")
-    print(df_selected.head(10))
 
-    df_raw_ref = pd.read_csv(raw_reference_path)
-    df_raw_ref_selected = df_raw_ref[final_selected_features + ["target"]]
-    df_raw_ref_selected.to_csv(reference_path, index=False)
-    print(df_raw_ref_selected.head(10))
+    # 5) Load raw_reference
+    df_ref = pd.read_csv(raw_reference_path)
 
-    def validate_features(current_df, reference_df):
-        """
-        Validate that current and reference datasets have the same columns
-        and no missing values.
-        
-        Args:
-            current_df (pd.DataFrame): DataFrame for current dataset
-            reference_df (pd.DataFrame): DataFrame for reference dataset
-        
-        Raises:
-            ValueError: If columns mismatch or there are NaN values
-        """
-        # 1. Check columns
-        if list(current_df.columns) != list(reference_df.columns):
-            raise ValueError(
-                f"Column mismatch:\nCurrent: {current_df.columns.tolist()}\nReference: {reference_df.columns.tolist()}"
-            )
-        
-        # 2. Check for NaN
-        if current_df.isna().any().any():
-            raise ValueError("Current dataset contains NaN values")
-        if reference_df.isna().any().any():
-            raise ValueError("Reference dataset contains NaN values")
-        
-        print("[validate_features] Columns match and no missing values found ✅")
-    validate_features(df_selected, df_raw_ref_selected)
+    # 6) Enforce same cleaning on reference
+    for col in selected_features:
+        if col not in df_ref.columns:
+            print(f"[WARN] Column '{col}' missing in raw_reference — creating with zeros")
+            df_ref[col] = 0
 
-    print(df_selected.info())
-    print(df_raw_ref_selected.info())
+    df_ref_selected = df_ref[selected_features + ["target"]]
+    df_ref_selected.to_csv(reference_path, index=False)
 
-    print("[tasks] FEATURE SELECTION COMPLETE")
+    print("[tasks] FEATURE SELECTION (STATIC MODE) COMPLETE")
+
 
 
 # -----------------------------
@@ -389,20 +322,7 @@ def upload_dataset_to_dagshub():
     ref_data_path = os.path.join(DATA_DIR, "reference_data.csv")
     dags_hub_dvc_path = "data/reference_data.csv"
     print("cwd : ", os.getcwd())
-    DAGS_DIR = os.path.dirname(os.path.abspath(__file__))      # <repo>/dags
-    REPO_ROOT = os.path.abspath(os.path.join(DAGS_DIR, ".."))  # <repo>
-    os.chdir(REPO_ROOT)  # change to repo root for dagshub upload
-    print("cwd : after ", os.getcwd())
-
-    res = subprocess.run(
-        ["git", "rev-parse", "HEAD"],
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-    last_commit = res.stdout.strip()
-    print("[DEBUG] last_commit from git:", last_commit)
-
+    os.chdir(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
     dagshub.upload_files(repo, ref_data_path, remote_path=dags_hub_dvc_path, versioning="dvc")
 
 

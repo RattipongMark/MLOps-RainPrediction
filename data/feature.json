@@ -1,0 +1,14 @@
+[
+  "cloud_cover_low",
+  "cloud_cover_mid",
+  "soil_moisture_0_to_7cm",
+  "dew_point_2m",
+  "vapour_pressure_deficit",
+  "wind_gusts_10m",
+  "soil_moisture_7_to_28cm",
+  "cloud_cover_high",
+  "wind_direction_100m",
+  "wind_speed_100m",
+  "soil_moisture_28_to_100cm",
+  "apparent_temperature"
+]

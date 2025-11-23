@@ -133,4 +133,4 @@ else:
 df_forecast["predicted_rain"] = predictions
 df_forecast["predicted_rain_prob"] = pred_probs
 
-print(df_forecast[["time", "predicted_rain", "predicted_rain_prob"]].head(20))
+print(df_forecast[["time", "predicted_rain", "predicted_rain_prob"]].head(50))

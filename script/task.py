@@ -427,12 +427,14 @@ def save_best_model(**context):
     ti = context["ti"]
     results = ti.xcom_pull(task_ids="train_models")
 
-    best_model = max(results, key=lambda x: x["acc"])
-    print(f"Best model: {best_model['model_name']} with accuracy {best_model['acc']:.4f}")
+    # Select best model by test PR-AUC
+    best_model = max(results, key=lambda x: x["test_pr_auc"])
+    print(f"Best model: {best_model['model_name']} with test PR-AUC {best_model['test_pr_auc']:.4f}")
 
     best_model_uri = f"runs:/{best_model['run_id']}/{best_model['artifact_path']}"
     registered_model_name = "rain_prediction_model"
 
+    # Register the model in MLflow
     model_version = mlflow.register_model(
         model_uri=best_model_uri,
         name=registered_model_name
@@ -440,6 +442,7 @@ def save_best_model(**context):
 
     print(f"Registered model version: name={registered_model_name}, version={model_version.version}")
 
+    # Set alias "Production" for this version
     client = MlflowClient()
     client.set_registered_model_alias(
         name=registered_model_name,

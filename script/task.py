@@ -7,11 +7,7 @@ from xgboost import XGBClassifier
 import lightgbm as lgb
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import (
-    accuracy_score, roc_auc_score, roc_curve, auc,
-    confusion_matrix, ConfusionMatrixDisplay,  classification_report
-)
-import matplotlib.pyplot as plt
+from sklearn.metrics import accuracy_score, roc_auc_score
 import dagshub
 import mlflow
 from mlflow import MlflowClient
@@ -267,9 +263,7 @@ def train_models(input_filename="reference.csv",
     df = pd.read_csv(input_path)
     X = df.drop("target", axis=1)
     y = df["target"]
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.2, random_state=42, stratify=y
-    )
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
     os.makedirs(model_dir, exist_ok=True)
 
     mlflow.set_experiment(experiment_name)
@@ -277,121 +271,47 @@ def train_models(input_filename="reference.csv",
     scale_pos_weight = (y_train==0).sum()/(y_train==1).sum()
 
     models = {
-        "XGBoost": XGBClassifier(
-            n_estimators=300, learning_rate=0.05, max_depth=6,
-            subsample=0.8, colsample_bytree=1.0, scale_pos_weight=scale_pos_weight,
-            random_state=42, eval_metric="logloss"
-        ),
-        "LightGBM": lgb.LGBMClassifier(
-            n_estimators=300, learning_rate=0.05, max_depth=6,
-            subsample=0.8, colsample_bytree=1.0, class_weight="balanced",
-            random_state=42
-        ),
-        "RandomForest": RandomForestClassifier(
-            n_estimators=300, max_depth=10,
-            class_weight="balanced", random_state=42
-        )
+        "XGBoost": XGBClassifier(n_estimators=300, learning_rate=0.05, max_depth=6,
+                                 subsample=0.8, colsample_bytree=1.0, scale_pos_weight=scale_pos_weight,
+                                 random_state=42, eval_metric="logloss"),
+        "LightGBM": lgb.LGBMClassifier(n_estimators=300, learning_rate=0.05, max_depth=6,
+                                       subsample=0.8, colsample_bytree=1.0, class_weight="balanced", random_state=42),
+        "RandomForest": RandomForestClassifier(n_estimators=300, max_depth=10,
+                                               class_weight="balanced", random_state=42)
     }
 
     results = []
     os.rename(input_path, os.path.join(DATA_DIR, "reference_data.csv"))
-
     for name, model in models.items():
         with mlflow.start_run(run_name=name):
             mlflow.log_artifact(os.path.join(DATA_DIR, "reference_data.csv"), artifact_path="data")
 
+            # artifact_uri = mlflow.get_artifact_uri("data/reference_data.csv")
             dataset = mlflow.data.from_pandas(df, name="training_data")
             mlflow.log_input(dataset)
 
-            # Fit
             model.fit(X_train, y_train)
-            y_train_pred = model.predict(X_train)
-            y_test_pred = model.predict(X_test)
-            y_train_prob = model.predict_proba(X_train)[:, 1]
-            y_test_prob = model.predict_proba(X_test)[:, 1]
-
-            # Metrics
-            test_acc = accuracy_score(y_test, y_test_pred)
-            train_acc = accuracy_score(y_train, y_train_pred)
-            test_auc = roc_auc_score(y_test, y_test_prob)
-            train_auc = roc_auc_score(y_train, y_train_prob)
-
+            y_pred = model.predict(X_test)
+            test_acc = accuracy_score(y_test, y_pred)
+            train_acc = accuracy_score(y_train, model.predict(X_train))
+            test_auc = roc_auc_score(y_test, model.predict_proba(X_test)[:,1])
+            train_auc = roc_auc_score(y_train, model.predict_proba(X_train)[:,1])
             mlflow.log_metric("test_accuracy", test_acc)
             mlflow.log_metric("train_accuracy", train_acc)
             mlflow.log_metric("test_auc", test_auc)
             mlflow.log_metric("train_auc", train_auc)
 
-            # Params
-            mlflow.log_params(model.get_params())
+            params = model.get_params()
+            mlflow.log_params(params)
 
-            # =======================================================
-            # Classification report logging (train + test)
-            # =======================================================
-            train_report_file = os.path.join(DATA_DIR, "train_classification_report.txt")
-            test_report_file = os.path.join(DATA_DIR, "test_classification_report.txt")
-            with open(train_report_file, "w") as f:
-                f.write(classification_report(y_train, y_train_pred))
-            with open(test_report_file, "w") as f:
-                f.write(classification_report(y_test, y_test_pred))
-            mlflow.log_artifact(train_report_file, artifact_path="reports")
-            mlflow.log_artifact(test_report_file, artifact_path="reports")
-
-            # =======================================================
-            # Confusion matrix plots (train + test)
-            # =======================================================
-            def log_conf_matrix(y_true, y_pred, label):
-                cm = confusion_matrix(y_true, y_pred)
-                disp = ConfusionMatrixDisplay(cm)
-                disp.plot()
-                plt.title(f"{name} - Confusion Matrix ({label})")
-                plt.tight_layout()
-                filename = f"confusion_matrix_{label}.png"
-                plt.savefig(filename)
-                plt.close()
-                mlflow.log_artifact(os.path.join(DATA_DIR, filename), artifact_path="plots")
-                # mlflow.log_artifact(filename, artifact_path="plots")
-
-            log_conf_matrix(y_train, y_train_pred, "train")
-            log_conf_matrix(y_test, y_test_pred, "test")
-
-            # =======================================================
-            # ROC curve plots (train + test)
-            # =======================================================
-            def log_roc_curve(y_true, y_prob, label):
-                fpr, tpr, _ = roc_curve(y_true, y_prob)
-                roc_auc = auc(fpr, tpr)
-
-                plt.figure()
-                plt.plot(fpr, tpr, label=f"AUC = {roc_auc:.3f}")
-                plt.plot([0, 1], [0, 1], linestyle="--")
-                plt.xlabel("False Positive Rate")
-                plt.ylabel("True Positive Rate")
-                plt.title(f"{name} ROC Curve ({label})")
-                plt.legend()
-                filename = f"roc_curve_{label}.png"
-                plt.savefig(filename)
-                plt.close()
-                mlflow.log_artifact(os.path.join(DATA_DIR, filename), artifact_path="plots")
-                # mlflow.log_artifact(filename, artifact_path="plots")
-
-            log_roc_curve(y_train, y_train_prob, "train")
-            log_roc_curve(y_test, y_test_prob, "test")
-
-            # =======================================================
-            # Log models
-            # =======================================================
             artifact_path = f"model_{name}"
             if name == "XGBoost":
                 mlflow.xgboost.log_model(model, artifact_path)
             else:
                 mlflow.sklearn.log_model(model, artifact_path)
 
-            results.append({
-                "model_name": name,
-                "acc": float(test_acc),
-                "artifact_path": artifact_path,
-                "run_id": mlflow.active_run().info.run_id
-            })
+            results.append({"model_name": name, "acc": float(test_acc), "artifact_path": artifact_path,
+                            "run_id": mlflow.active_run().info.run_id})
 
             print(f"[tasks] {name} trained & logged.")
 
@@ -434,6 +354,7 @@ def save_best_model(**context):
     )
 
     print(f"Model '{registered_model_name}' version {model_version.version} is now in stage 'Production'.")
+
 
 
 # -----------------------------

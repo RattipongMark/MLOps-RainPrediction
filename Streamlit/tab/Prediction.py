@@ -2,10 +2,13 @@
 import streamlit as st
 import pandas as pd
 from datetime import date
+from datetime import datetime
 from src.utils import fetch_open_meteo, fetch_open_meteo_hourly
 from src.model_utils import forecast_rain_from_model
 import base64
 from pathlib import Path
+import pytz
+
 def render():
     # -----------------------
     # PAGE CONFIG
@@ -45,8 +48,8 @@ def render():
     # -----------------------
     # HEADER — LOCATION + TEMP
     # -----------------------
-    now = pd.Timestamp.now()
-    hourly_df['time'] = pd.to_datetime(hourly_df['time'])
+    now = pd.Timestamp.now(tz="Asia/Bangkok")
+    hourly_df['time'] = pd.to_datetime(hourly_df['time'], utc=True).dt.tz_convert("Asia/Bangkok")
     closest_idx = (hourly_df['time'] - now).abs().idxmin()
     current_temp = hourly_df.loc[closest_idx, 'temperature_2m']
     current_time = now.strftime("%Y-%m-%d %H:%M")

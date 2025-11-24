@@ -8,21 +8,11 @@ import json
 import os
 import streamlit as st
 
-log_box = st.empty()
-logs = []
-
-def log(msg):
-    logs.append(msg)
-    log_box.text("\n".join(logs))
-    print(msg)
-
-
 def forecast_rain_from_model(df_forecast=None, repo_owner='RattipongMark', repo_name='MLOps-RainPrediction',
                              registered_model_name='rain_prediction_model', model_alias='Production'):
     """Input: hourly df or None (load from API), output: df with predictions"""
 
     token = os.environ.get("DAGSHUB_TOKEN")
-    log(f"Using DAGSHUB_USER_TOKEN: {token[:5]}...")  # แค่ preview
     dagshub.auth.add_app_token(token)
 
     # Load model

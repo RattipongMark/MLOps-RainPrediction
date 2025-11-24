@@ -111,22 +111,7 @@ def load_data_from_api(output_filename=TODAY_FILENAME, ref_filename="yesterday.c
     print(f"[tasks] Loaded new data from API, rows: {len(df_new)}")
     print(df_new.head())
 
-    # ---- NEW: remove duplicates by time (keep latest) ----
-    if os.path.exists(output_path):
-        df_old = pd.read_csv(output_path)
-        df_old["time"] = pd.to_datetime(df_old["time"])
-
-        # รวมเก่า + ใหม่
-        df_combined = pd.concat([df_old, df_new], ignore_index=True)
-        df_combined = df_combined.sort_values(by="time")
-
-        # ลบแถวเวลา duplicate (ใช้ข้อมูลล่าสุด)
-        df_combined = df_combined.drop_duplicates(subset=["time"], keep="last")
-
-        df_new = df_combined
-        print(f"[tasks] Removed duplicates → {len(df_new)} rows retained")
-
-    # ---- save raw current data ----
+    # ---- save raw current data temporarily ----
     df_new.to_csv(output_path, index=False)
     print(f"[tasks] Raw new data saved to {output_path}")
 
@@ -201,7 +186,9 @@ def preprocess_data(
 
         # concat & keep only last N rows
         df_combined = pd.concat([df_ref, df_today_final], ignore_index=True).tail(window_size)
-
+        df_combined = df_combined.sort_values(by="time")
+        df_combined = df_combined.drop_duplicates(subset=["time"], keep="last")
+        
         print(f"[tasks] Combined data from {ref_filename} and {input_filename}, total rows: {len(df_combined)}")
     else:
         df_combined = df_today_final

@@ -176,10 +176,6 @@ def preprocess_data(
 
     df_today_final = pd.DataFrame(df_today_mapped)
 
-    # drop time if exists
-    if "time" in df_today_final.columns:
-        df_today_final = df_today_final.drop(columns=["time"])
-
     # ---------------- Load reference ----------------
     if os.path.exists(ref_path):
         df_ref = pd.read_csv(ref_path)
@@ -188,12 +184,16 @@ def preprocess_data(
         df_combined = pd.concat([df_ref, df_today_final], ignore_index=True).tail(window_size)
         df_combined = df_combined.sort_values(by="time")
         df_combined = df_combined.drop_duplicates(subset=["time"], keep="last")
-        
+
         print(f"[tasks] Combined data from {ref_filename} and {input_filename}, total rows: {len(df_combined)}")
     else:
         df_combined = df_today_final
-
-    df_combined = df_combined.drop(columns=["Unnamed: 0"], errors='ignore')
+    
+    if "time" in df_combined.columns:
+        df_combined = df_combined.drop(columns=["time"], errors='ignore')
+    if "Unnamed: 0" in df_combined.columns:
+        df_combined = df_combined.drop(columns=["Unnamed: 0"], errors='ignore')
+        
     print(f"[tasks] Preprocessing complete, final columns: {df_combined.columns.tolist()}")
     print(df_combined.head())
     print(df_combined.info())

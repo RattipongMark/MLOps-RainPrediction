@@ -8,6 +8,7 @@ import json
 import os
 import streamlit as st
 
+
 def forecast_rain_from_model(df_forecast=None, repo_owner='RattipongMark', repo_name='MLOps-RainPrediction',
                              registered_model_name='rain_prediction_model', model_alias='Production'):
     """Input: hourly df or None (load from API), output: df with predictions"""

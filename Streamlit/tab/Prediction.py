@@ -100,7 +100,7 @@ def render():
         }
         </style>
         """
-        html += "<p style='color:white; text-align:left;'>Hourly Forecast</p>"
+        html += "<p style='color:white; text-align:left;'>Hourly Prediction</p>"
         html += "<div class='scrollmenu'>"
 
         sunrise_hour = 6
@@ -195,7 +195,7 @@ def render():
                 }
                 </style>
                 """
-            html += "<p style='color:white; font-size:18px;'>📅 Daily Forecast</p>"
+            html += "<p style='color:white; font-size:18px;'>📅 Daily Prediction</p>"
             html += "<div class='daily-container'>"
 
             for _, row in daily_df.iterrows():

@@ -5,7 +5,7 @@ import streamlit as st
 import requests
 
 st.set_page_config(
-    page_title="Rain Forecast App",
+    page_title="Rain Prediction App",
     # layout="wide"
 )
 mlflow_url = "http://localhost:5000"
@@ -13,7 +13,7 @@ airflow_url = "http://localhost:8080"
 retrain_url = "http://34.143.237.72:5001/trigger_dag"
 
         
-st.title("🌦️ Rain Forecast")
+st.title("🌦️ Rain Prediction")
 tab1, tab2, tab3 = st.tabs(["Dashboard", "Prediction", "Admin"])
 
 
